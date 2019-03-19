@@ -1,4 +1,5 @@
-# test to read AI from NI box
+import sys
+sys.path.append("..")
 import nidaqmx
 import time
 import numpy as np

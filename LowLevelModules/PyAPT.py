@@ -18,7 +18,7 @@ import os
 
 
 class APTMotor:
-    def __init__(self, SerialNum=None, HWTYPE=31, verbose=False, dllname='low_level_modules\APT.dll'):
+    def __init__(self, SerialNum=None, HWTYPE=31, verbose=False, dllname='..\LowLevelModules\APT.dll'):
         '''
         HWTYPE_BSC001		11	// 1 Ch benchtop stepper driver
         HWTYPE_BSC101		12	// 1 Ch benchtop stepper driver

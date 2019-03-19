@@ -1,3 +1,5 @@
+import sys
+sys.path.append("..")
 from tkinter import Tk, Entry, Label, Button, END, StringVar, CENTER
 from LowLevelModules.XPScontroller import XPSstage
 app_font = ('Latex', 20)

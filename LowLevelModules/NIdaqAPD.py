@@ -26,8 +26,8 @@ class APDCounter(nidaqmx.Task):
 
 class ExtClock(nidaqmx.Task):
 
-    def __init__(self, freq):
-        nidaqmx.Task.__init__(self, "External sample clock")
+    def __init__(self, freq, task_name='External sample clock'):
+        nidaqmx.Task.__init__(self, task_name)
         self.pulse_train = self.co_channels.add_co_pulse_chan_freq("/Dev1/ctr0", 'pulse_train',
                                                                    nidaqmx.constants.FrequencyUnits.HZ,
                                                                    nidaqmx.constants.Level.LOW, initial_delay=0.0,
