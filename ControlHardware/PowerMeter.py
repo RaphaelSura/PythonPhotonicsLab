@@ -3,7 +3,7 @@ sys.path.append("..")
 import nidaqmx
 import time
 import numpy as np
-from tkinter import Tk, Entry, Label, Text, Button, END, StringVar, CENTER
+from tkinter import Tk, Label, StringVar
 app_font = ('Latex', 60)
 samp_per_reading = 20
 

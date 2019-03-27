@@ -2,7 +2,9 @@ from kivy.app import App
 from kivy.properties import ObjectProperty
 from kivy.uix.gridlayout import GridLayout
 from kivy.core.window import Window
-# from LowLevelModules.XPScontroller import XPSstage
+import sys
+sys.path.append("..")
+from LowLevelModules.XPScontroller import XPSstage
 
 
 class Container(GridLayout):
@@ -10,7 +12,7 @@ class Container(GridLayout):
     # stage related stuff
     cursor = 2
     position = [0.1, 0.3, 1, 3, 10, 30, 100, 300, 1000]
-    # stage = XPSstage('169.254.66.147', 5001, 1)
+    stage = XPSstage('169.254.66.147', 5001, 1)
 
     def __init__(self, **kwargs):
         super(Container, self).__init__(**kwargs)
@@ -42,11 +44,11 @@ class Container(GridLayout):
             self.update_entry()
 
     def move_stage_forward(self):
-        # self.stage.move_by(-1 * float(self.display.text) / 1000)
+        self.stage.move_by(-1 * float(self.display.text) / 1000)
         pass
 
     def move_stage_backward(self):
-        # self.stage.move_by(float(self.display.text) / 1000)
+        self.stage.move_by(float(self.display.text) / 1000)
         pass
 
 
@@ -58,4 +60,4 @@ class FocuscontrolApp(App):
         return Container()
 
 
-FocuscontrolApp().run()   # must have a focuscontrol.kv in same folder (base name in lower case minus App)
+FocuscontrolApp().run()

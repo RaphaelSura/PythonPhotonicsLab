@@ -50,7 +50,7 @@ class LivePlot:
             self.ax2.autoscale_view()
 
         self.fig.canvas.draw()
-        plt.pause(.0001)
+        plt.pause(1e-7)
 
 
 # ##################################   General functions   ##############################################

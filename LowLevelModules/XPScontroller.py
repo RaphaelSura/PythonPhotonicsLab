@@ -4236,4 +4236,4 @@ class XPSstage(XPS):
         if errorCode != 0:
             self.displayErrorAndClose(errorCode, 'GroupPositionCurrentGet')
         else:
-            print('Stage position:', str(self.current_pos), 'mm')
+            return self.current_pos

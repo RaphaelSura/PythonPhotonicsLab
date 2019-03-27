@@ -19,7 +19,7 @@ class FocusApp:
         portnum = 5001
         groupnum = 1
         self.stage = XPSstage(ip_address, portnum, groupnum)
-        # self.stage.read_position()
+        print(self.stage.read_position())
 
         # buttons and label
         instruction = "\n Use ←/→ to move the objective back and forth \n Use ↑/↓ to toggle between step size \n"

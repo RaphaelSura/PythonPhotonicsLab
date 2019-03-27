@@ -25,7 +25,7 @@ task_toptica.write(offset_voltage, auto_start=True, timeout=5)
 # initialize the rest
 voltages = np.linspace(V_start, V_end, num_steps)
 volt, cts, laser_power = [], [], []
-lp = LivePlot(10, 6, 'o', 'Voltage (V)', 'APD counts (kHz)')
+lp = LivePlot(1, 10, 6, 'o', 'Voltage (V)', 'APD counts (kHz)')
 
 #initialize the task on DAQ board
 task_PD = nidaqmx.Task("PD reading")
