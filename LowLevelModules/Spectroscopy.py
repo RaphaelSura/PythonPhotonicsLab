@@ -43,7 +43,7 @@ class Spectrum(SpeFile):
 
         cut_signal = irfft(cut_f_signal)
         if plotplot:
-            fig = plt.figure(figsize=(10, 3))
+            fig = plt.figure(figsize=(12, 6))
             ax1 = fig.add_subplot(121)
             ax1.plot(freqs[freqs >= 0], f_signal[freqs >= 0])
             ax1.plot(freqs[freqs >= 0], cut_f_signal[freqs >= 0])
