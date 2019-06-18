@@ -13,7 +13,7 @@ FS_TICKS = 20
 
 
 class LivePlot:
-    def __init__(self, subpl=2, x_ext=10, y_ext=6, mk='o', xlabel='x', ylabel='y'):
+    def __init__(self, subpl=2, num_y_data=1, x_ext=10, y_ext=6, mk='o', xlabel='x', ylabel='y'):
         self.fig = plt.figure(figsize=(x_ext, y_ext))
         self.subpl_num = subpl
         if subpl == 1:
@@ -21,6 +21,9 @@ class LivePlot:
         else:
             self.ax1 = self.fig.add_subplot(121)
         plt.plot([], [], marker=mk)
+        if num_y_data == 2:
+            plt.plot([], [], marker=mk)
+
         plt.xlabel(xlabel, labelpad=10, fontsize=FS_LABEL)
         plt.ylabel(ylabel, labelpad=10, fontsize=FS_LABEL)
         self.ax1.tick_params(axis='both', labelsize=FS_TICKS)
@@ -36,9 +39,12 @@ class LivePlot:
         self.fig.canvas.draw()
         plt.tight_layout()
 
-    def plot_live(self, xdata, ydata):
+    def plot_live(self, xdata, ydata, ydata2=None):
         self.ax1.lines[0].set_xdata(xdata)
         self.ax1.lines[0].set_ydata(ydata)
+        if ydata2 is not None:
+            self.ax1.lines[1].set_xdata(xdata)
+            self.ax1.lines[1].set_ydata(ydata2)
         self.ax1.relim()
         self.ax1.autoscale_view()
 

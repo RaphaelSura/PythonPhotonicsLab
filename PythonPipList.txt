@@ -1,0 +1,10 @@
+jupyter
+matplotlib
+numpy
+pymeasure
+pyusb
+pyvisa
+pyvisa-py
+scikit-learn
+scipy
+spe2py
