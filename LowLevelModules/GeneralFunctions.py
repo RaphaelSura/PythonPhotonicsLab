@@ -6,8 +6,8 @@ from scipy.special import erf
 from more_itertools import locate
 
 # ##################################   General constants   ##############################################
-FS_LABEL = 24
-FS_TICKS = 20
+FS_LABEL = 22
+FS_TICKS = 18
 
 # ##################################   General classes   #################################################
 
