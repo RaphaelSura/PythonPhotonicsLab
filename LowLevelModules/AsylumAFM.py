@@ -35,7 +35,7 @@ class AFMdata:
         self.fig1 = plt.figure(figsize=(7, 6))
         self.ax1 = self.fig1.add_subplot(111)
         extent = np.array([-.5, .5, -.5, .5]) * self.scan_size
-        self.cp1 = self.ax1.imshow(getattr(self, case), cmap='afmhot', origin='center', extent=extent)
+        self.cp1 = self.ax1.imshow(getattr(self, case), cmap='terrain', origin='center', extent=extent)
         self.cb1 = plt.colorbar(self.cp1, fraction=0.046, pad=0.04)
         prettify_2d_plot(self.ax1, self.cb1, 'X (µm)', 'Y (µm)', self.plot_unit[case])
         self.fig1.tight_layout()
