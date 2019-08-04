@@ -1,6 +1,5 @@
 from spe_loader import SpeFile
 from LowLevelModules.GeneralFunctions import voigt_func, voigt_func_2p
-from scipy.optimize import curve_fit
 from scipy.fftpack import rfft, irfft, fftfreq
 import numpy as np
 import matplotlib.pyplot as plt
@@ -54,17 +53,3 @@ class Spectrum(SpeFile):
             ax2.plot(self.x, cut_signal)
         self.y = cut_signal
 
-    @staticmethod
-    def calc_peak_separation(lambda1, lambda2):
-        e1 = 1241/lambda1
-        e2 = 1241/lambda2
-        return np.abs(lambda1-lambda2), 1000 * np.abs(e1-e2)
-
-    def fit_2voigt(self, bds):
-        popt, pcov = curve_fit(voigt_func_2p, self.x, self.y, bounds=bds)
-        print(popt)
-        c1f = popt[:4]
-        c2f = popt[4:]
-        lambda_sep, ener_sep = self.calc_peak_separation(c1f[1], c2f[1])
-        print('Peak separation:', np.round(lambda_sep, 2), 'nm.    ', np.round(ener_sep, 2), 'meV.')
-        return voigt_func_2p(self.x, *c1f, *c2f), voigt_func(self.x, *c1f), voigt_func(self.x, *c2f), popt

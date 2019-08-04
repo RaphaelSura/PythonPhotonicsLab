@@ -137,8 +137,7 @@ def voigt_func(x, a0, x0, sigma, gamma):
 
 def voigt_func_2p(x, a01, x01, sigma1, gamma1, a02, x02, sigma2, gamma2):
     # Voigt function = line profile of a Gaussian distribution convoluted with a Lorentzian distribution.
-    # input coeff should be two line vector [height, position, gaussian width sigma, lorentzian width gamma]
-    # one array per peak to fit
+    # input coeff should be two line vector 
 
     z1 = (x - x01 + 1j * gamma1) / (sigma1 * np.sqrt(2))
     z2 = (x - x02 + 1j * gamma2) / (sigma2 * np.sqrt(2))
@@ -155,3 +154,4 @@ def voigt_func_2p(x, a01, x01, sigma1, gamma1, a02, x02, sigma2, gamma2):
     # if numel(n_row) ~= 0:
     # F(n_row(1):n_row(end)) = 0
     return a01 * f1 / np.max(f1) + a02 * f2 / np.max(f2)
+    #return voigt_func(x, a01, x01, sigma1, gamma1) + voigt_func(x, a02, x02, sigma2, gamma2)
