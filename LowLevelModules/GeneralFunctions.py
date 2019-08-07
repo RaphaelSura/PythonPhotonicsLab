@@ -33,7 +33,7 @@ class LivePlot:
             plt.plot([], [], marker=mk)
             plt.xlabel('', labelpad=10, fontsize=FS_LABEL)
             plt.ylabel('', labelpad=10, fontsize=FS_LABEL)
-            self.ax2.tick_params(axis='both', labelsize=FS_TICKS)
+            self.ax2.tick_params(axis='both', labelsize=14)
 
         self.fig.show()
         self.fig.canvas.draw()
