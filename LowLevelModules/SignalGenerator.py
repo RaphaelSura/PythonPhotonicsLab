@@ -1,11 +1,11 @@
 import visa
 
 
-class SG384(visa.ResourceManager):
+class SG384:
     def __init__(self, addr):
-        visa.ResourceManager.__init__(self)
-        self.equipment = self.open_resource(addr)
-
+        rm_py = visa.ResourceManager()
+        self.equipment = rm_py.open_resource(addr)
+        
     def set_frequency(self, value, unit='GHz'):
         self.equipment.write("FREQ %f %s" % (value, unit))
     

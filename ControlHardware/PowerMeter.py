@@ -45,7 +45,7 @@ class PowerMeterApp:
         self.nw_label.grid(row=1, column=0, padx=10, pady=10)
         """
 
-        #initialize the task on DAQ board
+        # initialize the task on DAQ board
         self.task = nidaqmx.Task("PD reading")
         self.task.ai_channels.add_ai_voltage_chan("Dev1/ai2")
         self.task.start()
@@ -68,7 +68,8 @@ class PowerMeterApp:
         return self.calib_coeffs[0] * v + self.calib_coeffs[1]
 
     def zeroing(self):
-        v_now = self.read_voltage()
+        # v_now = self.read_voltage()
+        pass
 
 
 calib = np.polyfit(daq_reading, power_reading, 1)
