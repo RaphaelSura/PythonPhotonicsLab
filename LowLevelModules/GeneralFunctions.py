@@ -59,6 +59,28 @@ class LivePlot:
         plt.pause(1e-7)
 
 
+class LivePlot2D:
+    def __init__(self, x_data, y_data, z_data, x_ext=18, y_ext=6):
+        self.fig = plt.figure(figsize=(x_ext, y_ext))
+        self.ax = self.fig.add_subplot(111)
+        self.extent = [np.min(x_data), np.max(x_data), np.min(y_data), np.max(y_data)]
+        self.fig.show()
+        aspect_ratio = (x_data[-1] - x_data[0]) / (y_data[-1] - y_data[0]) / 2
+        self.cp = self.ax.imshow(z_data, cmap='jet', origin='center', extent=self.extent,
+                                 interpolation='nearest', aspect=aspect_ratio)
+
+        self.cb = self.fig.colorbar(self.cp, fraction=0.046/2, pad=0.04)
+        self.fig.canvas.draw()
+        self.fig.tight_layout()
+
+    def plot_live(self, z_data):
+        self.cp.set_data(z_data)
+        self.cb.set_clim(vmin=np.min(z_data),vmax=np.max(z_data))
+        self.cb.draw_all()
+        self.fig.canvas.draw()
+        self.fig.tight_layout()
+        plt.pause(1e-6)
+
 # ##################################   General functions   ##############################################
 
 
