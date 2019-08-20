@@ -11,14 +11,14 @@ class LakeShore335:
         self.heater_range_values = {'off': 0, 'low': 1, 'medium': 2, 'high': 3}
 
     def set_target_temperature(self, value):
-        self.equipment.write("SETP 1, %f" % (value,))
+        self.equipment.write(f"SETP 1, {value}")
 
     def get_temp(self, sensor):
-        temp = self.equipment.query("KRDG? " + sensor)
+        temp = self.equipment.query(f"KRDG? {sensor}")
         return float(temp[1:].strip())
 
     def set_heater_range(self, value):
-        self.equipment.write("RANGE 1, %d" % (self.heater_range_values[value],))
+        self.equipment.write(f"RANGE 1, {self.heater_range_values[value]}")
 
     def turn_heater_off(self):
         self.equipment.write("RANGE 1, 0")
@@ -70,19 +70,19 @@ class SG384:
         else:
             return self.equipment.query(f"AMPR? {unit}")
 
-    def set_DC_offset(self, value):
+    def set_dc_offset(self, value):
         self.equipment.write(f"OFSL {value}")
 
-    def get_DC_offset(self):
+    def get_dc_offset(self):
         return float(self.equipment.query("OFSL?").strip())
 
-    def enable_RF_signal(self, port='BNC'):
+    def enable_rf_signal(self, port='BNC'):
         if port == 'BNC':
             self.equipment.write("ENBL 1")
         else:
             self.equipment.write("ENBR 1")
 
-    def disable_RF_signal(self, port='BNC'):
+    def disable_rf_signal(self, port='BNC'):
         if port == 'BNC':
             self.equipment.write("ENBL 0")
         else:

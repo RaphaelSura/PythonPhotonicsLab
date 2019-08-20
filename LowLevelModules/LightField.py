@@ -6,6 +6,7 @@ import time
 from System.IO import *
 from System import String
 from System.Collections.Generic import List
+from LowLevelModules.Spectroscopy import Spectrum
 
 # clr.AddReference('System.IO')
 # clr.AddReference('System.Collections')
@@ -33,7 +34,7 @@ class LightField:
         self.experiment = self.auto.LightFieldApplication.Experiment
         for device in self.experiment.ExperimentDevices:
             if device.Type == DeviceType.Camera:
-                print("Device setup OK")
+                print("Lightfield startup and setup OK")
 
     def set_value(self, setting, value):
         if self.experiment.Exists(setting):
@@ -60,7 +61,8 @@ class LightField:
         while self.experiment.IsRunning:
             time.sleep(.1)
 
-    def load_acquired_data(self, directory, filename):
+    @staticmethod
+    def load_acquired_data(directory, filename):
         while not os.path.exists(directory + "\\" + filename + ".spe"):
             time.sleep(.1)
         while True:
