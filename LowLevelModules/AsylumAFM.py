@@ -8,7 +8,7 @@ from LowLevelModules.GeneralFunctions import *
 
 
 class AFMdata:
-    def __init__(self, path):
+    def __init__(self, path, rotate=0):
 
         self.file = bw.load(path)
         self.data = self.file['wave']
@@ -30,6 +30,10 @@ class AFMdata:
         self.dim = self.height.shape
         self.X = np.linspace(-self.scan_size / 2, self.scan_size / 2, self.dim[0])
         self.Y = np.linspace(-self.scan_size / 2, self.scan_size / 2, self.dim[1])
+        if rotate > 0:
+            self.height = np.rot90(self.height, rotate)
+            self.amplitude = np.rot90(self.amplitude, rotate)
+            self.phase = np.rot90(self.phase, rotate)
 
     def plot2D(self, case='height'):
         self.fig1 = plt.figure(figsize=(7, 6))
