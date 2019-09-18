@@ -96,7 +96,8 @@ def data_save(array, figure, type, header):
         os.makedirs(save_data_dir)
     figure.savefig(save_data_file + '.png', format='png', bbox_inches='tight')
     np.savetxt(save_data_file + '.txt', array, header=header)
-    return [save_data_dir, save_data_file]
+    print(save_data_file + '.txt')
+    #return [save_data_dir, save_data_file]
 
 def get_work_dir():
     # this function is useful when working from different computers in Dropbox, Google Drive...
