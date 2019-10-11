@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+import matplotlib
 import numpy as np
 import datetime
 import os
@@ -65,7 +66,7 @@ class LivePlot2D:
         self.ax = self.fig.add_subplot(111)
         self.extent = [np.min(x_data), np.max(x_data), np.min(y_data), np.max(y_data)]
         self.fig.show()
-        aspect_ratio = (x_data[-1] - x_data[0]) / (y_data[-1] - y_data[0]) / 2
+        aspect_ratio = abs((x_data[-1] - x_data[0]) / (y_data[-1] - y_data[0]) / 2)
         self.cp = self.ax.imshow(z_data, cmap='jet', origin='center', extent=self.extent,
                                  interpolation='nearest', aspect=aspect_ratio)
 
@@ -80,21 +81,48 @@ class LivePlot2D:
         self.fig.canvas.draw()
         self.fig.tight_layout()
         plt.pause(1e-6)
+        
+        
+class LivePlot2DV2:
+    def __init__(self, x_data, y_data, z_data, x_ext=18, y_ext=6):
+        self.fig = plt.figure(figsize=(x_ext, y_ext))
+        self.ax = self.fig.add_subplot(111)
+        self.extent = [np.min(x_data), np.max(x_data), np.min(y_data), np.max(y_data)]
+        self.fig.show()
+        aspect_ratio = abs((x_data[-1] - x_data[0]) / (y_data[-1] - y_data[0]) )
+        self.cp = self.ax.imshow(z_data, cmap='gray', 
+                                 interpolation='nearest',extent=self.extent, aspect=aspect_ratio)
+# origin='center', extent=self.extent
+        self.cb = self.fig.colorbar(self.cp, fraction=0.046/2, pad=0.04)
+        self.fig.canvas.draw()
+        self.fig.tight_layout()
+
+    def plot_live(self, z_data):
+        self.cp.set_data(z_data)
+        self.cNorm      = matplotlib.colors.Normalize(vmin=np.min(z_data),vmax=np.max(z_data))
+        self.scalarMap  = matplotlib.cm.ScalarMappable(norm=self.cNorm, cmap=plt.get_cmap('gray') )
+        self.cb.update_normal(self.scalarMap)
+        self.cp.set_norm(self.cNorm)
+        self.cb.draw_all()
+        self.fig.canvas.draw()
+        self.fig.tight_layout()
+        plt.pause(1e-6)
 
 # ##################################   General functions   ##############################################
 
 
-def data_save(array, figure, type, header):
+def data_save(array, figure=None, data_type=None, header=None):
     # fetch date and time
     now = datetime.datetime.now()
     date_str = now.strftime("%y%m%d %H%M")[:6]
     time_str = now.strftime("%y%m%d %H%M%S")[-6:]
-    save_data_dir = r'C:\data\%s\%s' % (date_str, type)
-    save_data_file = r'%s\%s_%s' % (save_data_dir, type, time_str)
+    save_data_dir = r'C:\data\%s\%s' % (date_str, data_type)
+    save_data_file = r'%s\%s_%s' % (save_data_dir, data_type, time_str)
 
     if not os.path.isdir(save_data_dir):
         os.makedirs(save_data_dir)
-    figure.savefig(save_data_file + '.png', format='png', bbox_inches='tight')
+    if figure is not None:
+        figure.savefig(save_data_file + '.png', format='png', bbox_inches='tight')
     np.savetxt(save_data_file + '.txt', array, header=header)
     print(save_data_file + '.txt')
     #return [save_data_dir, save_data_file]
