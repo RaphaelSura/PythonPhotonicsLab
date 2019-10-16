@@ -110,23 +110,36 @@ class LivePlot2DV2:
 
 # ##################################   General functions   ##############################################
 
-
-def data_save(array, figure=None, data_type=None, header=None):
-    # fetch date and time
+def fetch_date_and_make_folder(data_type):
     now = datetime.datetime.now()
     date_str = now.strftime("%y%m%d %H%M")[:6]
     time_str = now.strftime("%y%m%d %H%M%S")[-6:]
-    save_data_dir = r'C:\data\%s\%s' % (date_str, data_type)
-    save_data_file = r'%s\%s_%s' % (save_data_dir, data_type, time_str)
+    output_dir = r'C:\data\%s\%s' % (date_str, data_type)
+    output_data = r'%s\%s_%s' % (output_dir, data_type, time_str)
 
-    if not os.path.isdir(save_data_dir):
-        os.makedirs(save_data_dir)
+    if not os.path.isdir(output_dir):
+        os.makedirs(output_dir)
+        
+    return output_data
+
+def data_save(array, figure=None, data_type=None, header=None):
+    
+    save_data_file = fetch_date_and_make_folder(data_type)
     if figure is not None:
         figure.savefig(save_data_file + '.png', format='png', bbox_inches='tight')
     np.savetxt(save_data_file + '.txt', array, header=header)
     print(save_data_file + '.txt')
-    #return [save_data_dir, save_data_file]
 
+def data_save_2D(x_data, y_data, z_data, figure=None, data_type=None):
+
+    save_data_file = fetch_date_and_make_folder(data_type)
+    if figure is not None:
+        figure.savefig(save_data_file + '.png', format='png', bbox_inches='tight')
+    np.savetxt(save_data_file + ' X.txt', x_data)
+    np.savetxt(save_data_file + ' Y.txt', y_data)
+    np.savetxt(save_data_file + ' Z.txt', z_data)
+    print(save_data_file + ' Z.txt')
+    
 def get_work_dir():
     # this function is useful when working from different computers in Dropbox, Google Drive...
     wd = os.getcwd()

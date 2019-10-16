@@ -9,7 +9,10 @@ class Spectrum(SpeFile):
 
     def __init__(self, filename):
         super().__init__(filename)
-        self.x = self.wavelength.T
+        try:
+            self.x = self.wavelength.T        
+        except:
+            print("no wavelength information")
         self.y = self.data[0][0].T / self.exposure_time
         self.y = self.y[:, 0]
 
