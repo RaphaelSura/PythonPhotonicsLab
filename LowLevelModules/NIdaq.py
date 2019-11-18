@@ -21,9 +21,9 @@ class AO(nidaqmx.Task):
 
 class AI(nidaqmx.Task):
     #, task_name="AI Read1"
-    def __init__(self, term):
+    def __init__(self, term,terminal_config=nidaqmx.constants.TerminalConfiguration.DEFAULT):
         nidaqmx.Task.__init__(self)
-        self.ai_channels.add_ai_voltage_chan(term)#, 'FSM x axis1'
+        self.ai_channels.add_ai_voltage_chan(term,terminal_config=terminal_config)#, 'FSM x axis1'
         
     def config_read(self,npnts,scan_freq,trig_src):
         # use onboard clock
@@ -60,9 +60,9 @@ class DO(nidaqmx.Task):
 
 class CO(nidaqmx.Task):
     #, task_name='Counter out'
-    def __init__(self, term, freq):
+    def __init__(self, ctr, freq):
         nidaqmx.Task.__init__(self)
-        self.pulse_train = self.co_channels.add_co_pulse_chan_freq(term,
+        self.pulse_train = self.co_channels.add_co_pulse_chan_freq(ctr,
                                                            units=nidaqmx.constants.FrequencyUnits.HZ,
                                                            idle_state=nidaqmx.constants.Level.LOW, initial_delay=0.0,
                                                            freq=freq, duty_cycle=0.5)

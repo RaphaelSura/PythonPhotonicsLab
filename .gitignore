@@ -1,5 +1,9 @@
 .ipynb_checkpoints
 .idea
+.DS_Store
 __pycache__/
 LowLevelModules/__pycache__
 ControlHardware/Thumbs.db
+ControlHardwareB70
+Obsolete
+TestPrograms

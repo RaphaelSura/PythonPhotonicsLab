@@ -17,6 +17,7 @@ import Newport.ConexAGPCmdLib
 DEV = 1                # hardcoded here
 address_for_reset = 5 # following LabView
 MAX_VELOCITY = 0.4     # mm/s, by spec of NewPort AG-LS25-27P
+POS_LIMIT = 13.8
 # unit in mm
 
 class ConexAGP:
@@ -34,7 +35,7 @@ class ConexAGP:
             print('Oops: error opening port %s' % com_port)
             self.positioner_error = 'init failed'
         else: 
-            self.set_pos_limit(14) # hardcode limit to 14
+            self.set_pos_limit(POS_LIMIT) # hardcode limit
 #             print('ConexCC: Successfully connected to %s' % com_port)            
 #             self.read_velocity()
 #             self.set_velocity(velocity)

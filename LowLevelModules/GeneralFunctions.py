@@ -60,6 +60,64 @@ class LivePlot:
         plt.pause(1e-7)
 
 
+class LivePlotLR:
+    """
+    plot on left and right axes
+    """
+    def __init__(self, subpl=1, num_y_data=1, x_ext=10, y_ext=6, mk='bo', xlabel='x', ylabel='y',yrlabel='yr'):
+        self.fig = plt.figure(figsize=(x_ext, y_ext))
+        self.subpl_num = subpl
+        if subpl == 1:
+            self.ax1 = self.fig.add_subplot(111)
+        else:
+            self.ax1 = self.fig.add_subplot(121)
+        plt.plot([], [], marker=mk)
+        if num_y_data == 2:
+            plt.plot([], [], marker=mk)
+        
+        self.ax1r = self.ax1.twinx()
+#         plt.xlabel(xlabel, labelpad=10, fontsize=FS_LABEL)
+#         plt.ylabel(ylabel, labelpad=10, fontsize=FS_LABEL)
+        self.ax1.set_xlabel( xlabel,labelpad=10, fontsize=FS_LABEL)
+        self.ax1.set_ylabel( ylabel, color='b',labelpad=10, fontsize=FS_LABEL)
+        self.ax1r.set_ylabel( yrlabel, color='g',labelpad=10, fontsize=FS_LABEL)
+        self.ax1.tick_params(axis='both', labelsize=FS_TICKS)
+        self.ax1r.tick_params(axis='both', labelsize=FS_TICKS)
+        self.ax1r.plot([],[],'go-')
+        
+
+        if subpl > 1:
+            self.ax2 = self.fig.add_subplot(122, polar=True)
+            plt.plot([], [], marker=mk)
+            plt.xlabel('', labelpad=10, fontsize=FS_LABEL)
+            plt.ylabel('', labelpad=10, fontsize=FS_LABEL)
+            self.ax2.tick_params(axis='both', labelsize=14)
+
+        self.fig.show()
+        self.fig.canvas.draw()
+        plt.tight_layout()
+
+    def plot_live(self, xdata, ydata, yrdata=None):
+        self.ax1.lines[0].set_xdata(xdata)
+        self.ax1.lines[0].set_ydata(ydata)
+        if yrdata is not None:
+            self.ax1r.lines[0].set_xdata(xdata)
+            self.ax1r.lines[0].set_ydata(yrdata)
+        self.ax1.relim()
+        self.ax1.autoscale_view()
+        self.ax1r.relim()
+        self.ax1r.autoscale_view()
+
+        if self.subpl_num > 1:
+            xdata = [xx * np.pi / 180 for xx in xdata]
+            self.ax2.lines[0].set_xdata(xdata)
+            self.ax2.lines[0].set_ydata(ydata)
+            self.ax2.relim()
+            self.ax2.autoscale_view()
+
+        self.fig.canvas.draw()
+        plt.pause(1e-7)
+
 class LivePlot2D:
     def __init__(self, x_data, y_data, z_data, x_ext=18, y_ext=6):
         self.fig = plt.figure(figsize=(x_ext, y_ext))
@@ -108,6 +166,55 @@ class LivePlot2DV2:
         self.fig.tight_layout()
         plt.pause(1e-6)
 
+class LivePlotFSM:
+    def __init__(self, dims, x_data, y_data, z_data, xlabel='x', ylabel='y', zlabel='Cts'):
+        self.fig, (self.ax1, self.ax2) = plt.subplots(2, 1, 
+                                                      #sharex=True, 
+                                                      figsize=dims, 
+                                                      gridspec_kw={'height_ratios': [1, 2]})
+        #current X scan in 1D
+        self.ax1.plot(x_data, z_data[0,:])
+        self.ax1.set_xlabel('', labelpad=10, fontsize=18)
+        self.ax1.set_ylabel(zlabel, labelpad=10, fontsize=18)
+        self.ax1.tick_params(axis='both', labelsize=16)
+     
+        #2D sub plot
+        extent_x = (np.max(x_data) - np.min(x_data)) / 2
+        extent_y = (np.max(y_data) - np.min(y_data)) / 2
+        self.extent = [np.min(x_data), np.max(x_data), np.min(y_data), np.max(y_data)]
+#         aspect_ratio = abs((x_data[-1] - x_data[0]) / (y_data[-1] - y_data[0]))
+        self.cp2 = self.ax2.imshow(z_data, cmap='gray', extent=self.extent,
+                                 interpolation='nearest', aspect=1)
+
+        self.cb2 = self.fig.colorbar(self.cp2, fraction=0.046, pad=0.04)
+        self.ax2.set_xlabel(xlabel, labelpad=10, fontsize=18)
+        self.ax2.set_ylabel(ylabel, labelpad=10, fontsize=18)
+        self.cb2.set_label(zlabel, labelpad=20, fontsize=18)
+        self.cb2.ax.set_yticklabels(self.cb2.ax.get_yticklabels(), fontsize=16)
+        self.ax2.tick_params(axis='both', labelsize=16)
+
+        self.fig.show()
+        self.fig.canvas.draw()
+        self.fig.subplots_adjust(hspace=.3, left=0.15, bottom=0.15, right = 0.8)
+        #self.fig.tight_layout()
+
+    def plot_live(self, x_data, y_data, z_data):
+        self.ax1.lines[0].set_xdata(x_data)
+        self.ax1.lines[0].set_ydata(y_data)
+        self.ax1.relim()
+        self.ax1.autoscale_view()
+    
+        self.cp2.set_data(z_data)
+        self.cNorm      = matplotlib.colors.Normalize(vmin=np.min(z_data),vmax=np.max(z_data))
+        self.scalarMap  = matplotlib.cm.ScalarMappable(norm=self.cNorm, cmap=plt.get_cmap('gray') )
+        self.cb2.update_normal(self.scalarMap)
+        self.cp2.set_norm(self.cNorm)
+        
+        self.cb2.draw_all()
+        self.fig.canvas.draw()
+        #self.fig.tight_layout()
+        plt.pause(1e-7)
+
 # ##################################   General functions   ##############################################
 
 def fetch_date_and_make_folder(data_type):
@@ -129,6 +236,7 @@ def data_save(array, figure=None, data_type=None, header=None):
         figure.savefig(save_data_file + '.png', format='png', bbox_inches='tight')
     np.savetxt(save_data_file + '.txt', array, header=header)
     print(save_data_file + '.txt')
+    return save_data_file
 
 def data_save_2D(x_data, y_data, z_data, figure=None, data_type=None):
 
@@ -186,6 +294,9 @@ def lorentzian_func(x_array, a0, x0, gamma):
 def gaussian_func(x_array, a0, x0, sigma):
     return a0 * np.exp(-(x_array - x0) ** 2 / (2 * sigma ** 2)) / np.sqrt(2 * np.pi * sigma ** 2)
 
+def gaussian_bkg_func(x_array, a0, x0, sigma,bkg):
+    return bkg+a0 * np.exp(-(x_array - x0) ** 2 / (2 * sigma ** 2)) / np.sqrt(2 * np.pi * sigma ** 2)
+
 
 def voigt_func(x, a0, x0, sigma, gamma):
     # Voigt function = line profile of a Gaussian distribution convoluted with a Lorentzian distribution.
@@ -219,3 +330,9 @@ def voigt_func_2p(x, a01, x01, sigma1, gamma1, a02, x02, sigma2, gamma2):
     # F(n_row(1):n_row(end)) = 0
     return a01 * f1 / np.max(f1) + a02 * f2 / np.max(f2)
     #return voigt_func(x, a01, x01, sigma1, gamma1) + voigt_func(x, a02, x02, sigma2, gamma2)
+    
+def lorentziansin(x,  amp, cen, fwhm, bkg, asin,fsin,phisin):
+    """
+    Lorentizan plus a sine wave - for fitting Fabry perot response in the presence of 60 Hz noise
+    """
+    return amp / (1+   ( 2*(x-cen)/fwhm )**2   ) + asin*np.sin(2*np.pi*fsin*x+phisin) +bkg
