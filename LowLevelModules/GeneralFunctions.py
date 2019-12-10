@@ -5,6 +5,7 @@ import datetime
 import os
 from scipy.special import erf
 from more_itertools import locate
+from scipy import optimize
 
 # ##################################   General constants   ##############################################
 FS_LABEL = 22
@@ -40,7 +41,7 @@ class LivePlot:
         self.fig.canvas.draw()
         plt.tight_layout()
 
-    def plot_live(self, xdata, ydata, ydata2=None):
+    def plot_live(self, xdata, ydata, ydata2=None,title1=''):
         self.ax1.lines[0].set_xdata(xdata)
         self.ax1.lines[0].set_ydata(ydata)
         if ydata2 is not None:
@@ -55,7 +56,7 @@ class LivePlot:
             self.ax2.lines[0].set_ydata(ydata)
             self.ax2.relim()
             self.ax2.autoscale_view()
-
+        self.ax1.set_title(title1)
         self.fig.canvas.draw()
         plt.pause(1e-7)
 
@@ -124,7 +125,7 @@ class LivePlot2D:
         self.ax = self.fig.add_subplot(111)
         self.extent = [np.min(x_data), np.max(x_data), np.min(y_data), np.max(y_data)]
         self.fig.show()
-        aspect_ratio = abs((x_data[-1] - x_data[0]) / (y_data[-1] - y_data[0]) / 2)
+        aspect_ratio = abs((x_data[-1] - x_data[0]) / (y_data[-1] - y_data[0]) )
         self.cp = self.ax.imshow(z_data, cmap='jet', origin='center', extent=self.extent,
                                  interpolation='nearest', aspect=aspect_ratio)
 
@@ -291,6 +292,10 @@ def lorentzian_func(x_array, a0, x0, gamma):
     return a0 * gamma / (np.pi * ((x_array - x0) ** 2 + gamma ** 2))
 
 
+def lorentzian_bkg_func(x_array, a0, x0, fwhm,bkg):
+    return a0  / ( 1+4*( (x_array-x0)/fwhm )**2   )+bkg
+
+
 def gaussian_func(x_array, a0, x0, sigma):
     return a0 * np.exp(-(x_array - x0) ** 2 / (2 * sigma ** 2)) / np.sqrt(2 * np.pi * sigma ** 2)
 
@@ -336,3 +341,35 @@ def lorentziansin(x,  amp, cen, fwhm, bkg, asin,fsin,phisin):
     Lorentizan plus a sine wave - for fitting Fabry perot response in the presence of 60 Hz noise
     """
     return amp / (1+   ( 2*(x-cen)/fwhm )**2   ) + asin*np.sin(2*np.pi*fsin*x+phisin) +bkg
+
+def gaussian2D(height, center_x, center_y, width_x, width_y,bkg):
+    """Returns a gaussian function with the given parameters"""
+    width_x = float(width_x)
+    width_y = float(width_y)
+    return lambda x,y: bkg+height*np.exp(
+                -(((center_x-x)/width_x)**2+((center_y-y)/width_y)**2)/2)
+
+def moments2D(data):
+    """Returns (height, x, y, width_x, width_y)
+    the gaussian parameters of a 2D distribution by calculating its
+    moments """
+    total = data.sum()
+    X, Y = np.indices(data.shape)
+    x = (X*data).sum()/total
+    y = (Y*data).sum()/total
+    col = data[:, int(y)]
+    width_x = np.sqrt(np.abs((np.arange(col.size)-y)**2*col).sum()/col.sum())
+    row = data[int(x), :]
+    width_y = np.sqrt(np.abs((np.arange(row.size)-x)**2*row).sum()/row.sum())
+    height = data.max()
+    bkg = data.min()
+    return height, x, y, width_x, width_y,bkg
+
+def fitgaussian2D(data):
+    """Returns (height, x, y, width_x, width_y)
+    the gaussian parameters of a 2D distribution found by a fit"""
+    params = moments2D(data)
+    errorfunction = lambda p: np.ravel(gaussian2D(*p)(*np.indices(data.shape)) -
+                                 data)
+    p, success = optimize.leastsq(errorfunction, params)
+    return p
