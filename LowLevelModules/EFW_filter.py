@@ -45,7 +45,7 @@ class EFW:
         self.bUnidirecitonal=True
         __efw_dll__.EFWSetDirection(self.EFW_ID,self.bUnidirecitonal)
         
-        self.EFW_wheel_filter= { '750LP': 4,'open':2}
+        self.EFW_wheel_filter= { '750LP': 4,'open':2, '750SP':0}#zero-index
 
     def __exit__(self):
         self.close()

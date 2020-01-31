@@ -6,7 +6,6 @@ import matplotlib.pyplot as plt
 
 
 class Spectrum(SpeFile):
-
     def __init__(self, filename):
         super().__init__(filename)
         try:
