@@ -22,10 +22,13 @@ class AFMdata:
         self.scan_size = float(self.info[0].split(' ')[1])
         self.scan_size *= 1e6  # micrometer
 
-        self.height = self.signal[:, :, 0].T * 1e9
+        if self.signal.shape[2] > 4:
+            self.height = self.signal[:, :, 4]. T *1e9
+        else:
+            self.height = self.signal[:, :, 0].T * 1e9
         self.amplitude = self.signal[:, :, 1].T
         self.phase = self.signal[:, :, 2].T
-        self.plot_unit = {'height': ' Height (nm)', 'amplitude': 'Amplitude (%)'}
+        self.plot_unit = {'height': ' Height (nm)', 'amplitude': 'Amplitude (%)', 'phase': 'Phase'}
         # make x and y arrays
         self.dim = self.height.shape
         self.X = np.linspace(-self.scan_size / 2, self.scan_size / 2, self.dim[0])

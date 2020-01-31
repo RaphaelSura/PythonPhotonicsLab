@@ -266,7 +266,7 @@ def prettify_2d_plot(fig_ax, fig_cb, xlabel='x', ylabel='y', zlabel='z'):
     fig_ax.set_xlabel(xlabel, labelpad=10, fontsize=FS_LABEL)
     fig_ax.set_ylabel(ylabel, labelpad=10, fontsize=FS_LABEL)
     fig_cb.set_label(zlabel, labelpad=20, fontsize=FS_LABEL)
-    fig_cb.ax.set_yticklabels(fig_cb.ax.get_yticklabels(), fontsize=FS_TICKS)
+    fig_cb.ax.tick_params(labelsize=FS_TICKS)
     fig_ax.tick_params(axis='both', labelsize=FS_TICKS)
 
 
