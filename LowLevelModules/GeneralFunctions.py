@@ -75,7 +75,7 @@ class LivePlotLR:
         plt.plot([], [], marker=mk)
         if num_y_data == 2:
             plt.plot([], [], marker=mk)
-        
+
         self.ax1r = self.ax1.twinx()
 #         plt.xlabel(xlabel, labelpad=10, fontsize=FS_LABEL)
 #         plt.ylabel(ylabel, labelpad=10, fontsize=FS_LABEL)
@@ -85,7 +85,7 @@ class LivePlotLR:
         self.ax1.tick_params(axis='both', labelsize=FS_TICKS)
         self.ax1r.tick_params(axis='both', labelsize=FS_TICKS)
         self.ax1r.plot([],[],'go-')
-        
+
 
         if subpl > 1:
             self.ax2 = self.fig.add_subplot(122, polar=True)
@@ -140,8 +140,8 @@ class LivePlot2D:
         self.fig.canvas.draw()
         self.fig.tight_layout()
         plt.pause(1e-6)
-        
-        
+
+
 class LivePlot2DV2:
     def __init__(self, x_data, y_data, z_data, x_ext=18, y_ext=6):
         self.fig = plt.figure(figsize=(x_ext, y_ext))
@@ -149,7 +149,7 @@ class LivePlot2DV2:
         self.extent = [np.min(x_data), np.max(x_data), np.min(y_data), np.max(y_data)]
         self.fig.show()
         aspect_ratio = abs((x_data[-1] - x_data[0]) / (y_data[-1] - y_data[0]) )
-        self.cp = self.ax.imshow(z_data, cmap='gray', 
+        self.cp = self.ax.imshow(z_data, cmap='gray',
                                  interpolation='nearest',extent=self.extent, aspect=aspect_ratio)
 # origin='center', extent=self.extent
         self.cb = self.fig.colorbar(self.cp, fraction=0.046/2, pad=0.04)
@@ -169,16 +169,16 @@ class LivePlot2DV2:
 
 class LivePlotFSM:
     def __init__(self, dims, x_data, y_data, z_data, xlabel='x', ylabel='y', zlabel='Cts'):
-        self.fig, (self.ax1, self.ax2) = plt.subplots(2, 1, 
-                                                      #sharex=True, 
-                                                      figsize=dims, 
+        self.fig, (self.ax1, self.ax2) = plt.subplots(2, 1,
+                                                      #sharex=True,
+                                                      figsize=dims,
                                                       gridspec_kw={'height_ratios': [1, 2]})
         #current X scan in 1D
         self.ax1.plot(x_data, z_data[0,:])
         self.ax1.set_xlabel('', labelpad=10, fontsize=18)
         self.ax1.set_ylabel(zlabel, labelpad=10, fontsize=18)
         self.ax1.tick_params(axis='both', labelsize=16)
-     
+
         #2D sub plot
         extent_x = (np.max(x_data) - np.min(x_data)) / 2
         extent_y = (np.max(y_data) - np.min(y_data)) / 2
@@ -204,13 +204,13 @@ class LivePlotFSM:
         self.ax1.lines[0].set_ydata(y_data)
         self.ax1.relim()
         self.ax1.autoscale_view()
-    
+
         self.cp2.set_data(z_data)
         self.cNorm      = matplotlib.colors.Normalize(vmin=np.min(z_data),vmax=np.max(z_data))
         self.scalarMap  = matplotlib.cm.ScalarMappable(norm=self.cNorm, cmap=plt.get_cmap('gray') )
         self.cb2.update_normal(self.scalarMap)
         self.cp2.set_norm(self.cNorm)
-        
+
         self.cb2.draw_all()
         self.fig.canvas.draw()
         #self.fig.tight_layout()
@@ -227,11 +227,10 @@ def fetch_date_and_make_folder(data_type):
 
     if not os.path.isdir(output_dir):
         os.makedirs(output_dir)
-        
+
     return output_data
 
 def data_save(array, figure=None, data_type=None, header=None):
-    
     save_data_file = fetch_date_and_make_folder(data_type)
     if figure is not None:
         figure.savefig(save_data_file + '.png', format='png', bbox_inches='tight')
@@ -240,7 +239,6 @@ def data_save(array, figure=None, data_type=None, header=None):
     return save_data_file
 
 def data_save_2D(x_data, y_data, z_data, figure=None, data_type=None):
-
     save_data_file = fetch_date_and_make_folder(data_type)
     if figure is not None:
         figure.savefig(save_data_file + '.png', format='png', bbox_inches='tight')
@@ -248,7 +246,7 @@ def data_save_2D(x_data, y_data, z_data, figure=None, data_type=None):
     np.savetxt(save_data_file + ' Y.txt', y_data)
     np.savetxt(save_data_file + ' Z.txt', z_data)
     print(save_data_file + ' Z.txt')
-    
+
 def get_work_dir():
     # this function is useful when working from different computers in Dropbox, Google Drive...
     wd = os.getcwd()
@@ -295,6 +293,12 @@ def lorentzian_func(x_array, a0, x0, gamma):
 def lorentzian_bkg_func(x_array, a0, x0, fwhm,bkg):
     return a0  / ( 1+4*( (x_array-x0)/fwhm )**2   )+bkg
 
+def lorentzian_discrete_func(x_array, aTot, x0, fwhm,bkg,step):
+    """
+    discretized with a step size
+    """
+    return bkg*step  +aTot/np.pi *(np.arctan(2*(x_array-x0+step/2)/fwhm)-np.arctan(2*(x_array-x0-step/2)/fwhm))
+
 
 def gaussian_func(x_array, a0, x0, sigma):
     return a0 * np.exp(-(x_array - x0) ** 2 / (2 * sigma ** 2)) / np.sqrt(2 * np.pi * sigma ** 2)
@@ -317,7 +321,7 @@ def voigt_func(x, a0, x0, sigma, gamma):
 
 def voigt_func_2p(x, a01, x01, sigma1, gamma1, a02, x02, sigma2, gamma2):
     # Voigt function = line profile of a Gaussian distribution convoluted with a Lorentzian distribution.
-    # input coeff should be two line vector 
+    # input coeff should be two line vector
 
     z1 = (x - x01 + 1j * gamma1) / (sigma1 * np.sqrt(2))
     z2 = (x - x02 + 1j * gamma2) / (sigma2 * np.sqrt(2))
@@ -335,7 +339,7 @@ def voigt_func_2p(x, a01, x01, sigma1, gamma1, a02, x02, sigma2, gamma2):
     # F(n_row(1):n_row(end)) = 0
     return a01 * f1 / np.max(f1) + a02 * f2 / np.max(f2)
     #return voigt_func(x, a01, x01, sigma1, gamma1) + voigt_func(x, a02, x02, sigma2, gamma2)
-    
+
 def lorentziansin(x,  amp, cen, fwhm, bkg, asin,fsin,phisin):
     """
     Lorentizan plus a sine wave - for fitting Fabry perot response in the presence of 60 Hz noise

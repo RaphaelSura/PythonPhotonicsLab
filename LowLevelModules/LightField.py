@@ -69,4 +69,5 @@ class LightField:
             try:
                 return Spectrum(directory + "\\" + filename + ".spe")
             except PermissionError:
+                print("Not permitted??")
                 time.sleep(.1)
