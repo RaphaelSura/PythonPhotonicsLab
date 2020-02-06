@@ -10,6 +10,7 @@ scipy
 spe2py
 nidaqmx
 more_itertools
+zhinst
 scikit-image
 pythonnet # use this for .NET Common Language Runtime (CLR)
 # don't pip clr - it will install a terminal string library
