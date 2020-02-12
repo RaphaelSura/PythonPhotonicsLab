@@ -3,6 +3,7 @@ JL3562@cornell.edu
 2020/01/29
 """
 import sys
+
 '''
 PUT THE CORRECT ROOT FOLDER FOR THE PYTHON SCRIPTS
 '''
@@ -16,7 +17,6 @@ import numpy as np
 from enum import Enum
 import LowLevelModules.GeneralFunctions as gf
 
-
 import threading
 
 '''
@@ -26,6 +26,8 @@ These are for LightField
 import clr
 import os
 import time
+
+
 # from System.IO import *
 # from System import String
 # from System.Collections.Generic import List
@@ -39,32 +41,42 @@ import time
 # clr.AddReference('PrincetonInstruments.LightFieldAddInSupportServices')
 
 class CtrlVars(Enum):
-    WAVELENGTH="PM Wavelength [nm]"
-    BEAM_DIAMETER="Beam diameter [mm]"
-    START_CURR="Start current [mA]"
-    STOP_CURR="Stop current [mA]"
-    CURR_STEP="Current step [mA]"
-    SOURCE_CURRENT_RANGE="Source cur. range [mA]"
-    COMPLIANCE_VOLT="Compliance Voltage [V]"
+    WAVELENGTH = "PM Wavelength [nm]"
+    BEAM_DIAMETER = "Beam diameter [mm]"
+    START_CURR = "Start current [mA]"
+    STOP_CURR = "Stop current [mA]"
+    CURR_STEP = "Current step [mA]"
+    SOURCE_CURRENT_RANGE = "Source cur. range [mA]"
+    COMPLIANCE_VOLT = "Compliance Voltage [V]"
+    SPECTROMETER_ACQ_TIME = "Spectrometer Acquisition Time [s]"
+
 
 class SpectrometerCtrlGUIWindow(QWidget):
+
+    def copyText(self):
+        self.filepathField.selectAll()
+        self.filepathField.copy()
+
     def createSavefileBox(self):
         # specify custom save directory
         # use data_save will save an additional copy to the predefined data folder
 
-        filepathLayout= QHBoxLayout()
-        fileLabel= QLabel("Full path: ")
-        filepathField= QLineEdit(self)
-        filepathField.setText(self.savefilePath)
+        filepathLayout = QHBoxLayout()
+        fileLabel = QLabel("Full path: ")
+        self.filepathField = QLineEdit(self)
+        # self.filepathField.setText(self.savefilePath)
+        self.copyFilepathButton = QPushButton("Copy path")
+        # TODO add the copy button 
         filepathLayout.addWidget(fileLabel)
-        filepathLayout.addWidget(filepathField)
+        filepathLayout.addWidget(self.filepathField)
+        filepathLayout.addWidget(self.copyFilepathButton)
         self.savefileBox.setLayout(filepathLayout)
         return self.savefileBox
 
     def createSpectrometerParamFormBox(self):
-        self.speParamLayout= QFormLayout()
-        self.sliderControllers=[]
-        self.typingControllers=[]
+        self.speParamLayout = QFormLayout()
+        self.sliderControllers = []
+        self.typingControllers = []
 
         for i, param in enumerate(self.paramNames):
             inputComboLayout = QHBoxLayout()
@@ -76,7 +88,6 @@ class SpectrometerCtrlGUIWindow(QWidget):
 
             inputComboLayout.addWidget(typingControl)
             inputComboLayout.addWidget(sliderControl)
-
 
             # print(f"connecting {i}-th signal {param} to a callback function")
             sliderControl.setMaximum(self.paramLimits[i][1])
@@ -114,30 +125,31 @@ class SpectrometerCtrlGUIWindow(QWidget):
         '''
         for i, param in enumerate(self.params):
             # self.params[i]= self.paramInitValues[i]
-            self.params_1[i]= self.paramInitValues[i]
+            self.params_1[i] = self.paramInitValues[i]
             # print(self.params)
-
 
     def updateSpecifiedParam(self, i):
         '''
         Update the specified parameters stored in a nparray; NOT sending to the instruments yet
         '''
+
         def updateParam_(value):
             self.params_1[i] = value
-            self.params[self.paramNames[i]]= value
+            self.params[self.paramNames[i]] = value
             # print(f"DEBUG: Changing {i}-th parameter: {self.paramNames[i]} to {value}")
             # print(f"DEBUG: all params listed:")
             # print(f"DEBUG: {self.params}")
+
         return updateParam_
 
     def createSpectrometerOperationButtonBox(self):
         '''
         Create buttons from a list of operations defined in __init__() method and link them to methods specified by getButtonAction()
         '''
-        self.oprButtonLayout= QHBoxLayout()
-        self.buttons= []
+        self.oprButtonLayout = QHBoxLayout()
+        self.buttons = []
         for opr in self.buttonNames:
-            button= QPushButton(opr)
+            button = QPushButton(opr)
             self.oprButtonLayout.addWidget(button)
             button.clicked.connect(self.getButtonAction(opr))
             self.buttons.append(button)
@@ -149,7 +161,7 @@ class SpectrometerCtrlGUIWindow(QWidget):
         return self.actionMap[buttonName]
 
     def _checkValidDaq(self):
-        if self.daq== None:
+        if self.daq == None:
             # print(f'Daq module not setup correctly in python, call linkDaq(daq) first')
             raise ValueError(f'Daq module not setup correctly in python, call linkDaq(daq) first')
 
@@ -182,22 +194,25 @@ class SpectrometerCtrlGUIWindow(QWidget):
             button.setDisabled(False)
 
     def _startSaveDataThread(self):
-        threading.Thread(name='saveData', target= self._saveData, args= tuple(), daemon= True).start()
-
+        threading.Thread(name='saveData', target=self._saveData, args=tuple(), daemon=True).start()
 
     def _saveData(self):
         self.daq.expFinished.wait()
-        data= self.daq.data
-        #TODO: Put header and figure into the GUI panel
-        self.savefilePath= gf.data_save(data, data_type='test', header="Description of the data the one should probably have a place in the GUI")
-        print(f'file saved here: \n{self.savefilePath}')
+        data = self.daq.data
+        # TODO: Put header and figure into the GUI panel
+        self.savefilePath = gf.data_save(data, data_type='test',
+                                         header="Description of the data the one should probably have a place in the GUI")
+        print(f'file saved here: \n{self.savefilePath}.txt')
+
+        if self.filepathField is not None:
+            self.filepathField.setText(f"{self.savefilePath}.txt")
+
         self.daq.expFinished.clear()
         self.enableAllButtons()
         # run the measurement loop?
 
     def linkDaq(self, daq):
-        self.daq= daq
-
+        self.daq = daq
 
     def btAboutAction(self):
         print(f"this is btAboutAction.")
@@ -205,60 +220,55 @@ class SpectrometerCtrlGUIWindow(QWidget):
     def showAbout(self):
         pass
 
-
     def __init__(self):
         super(SpectrometerCtrlGUIWindow, self).__init__()
         self.setWindowTitle("Spectrometer control")
-        self.daq= None
+        self.daq = None
         self.speParamBox = QGroupBox("Experiment Parameters", self)
         self.oprButtonBox = QGroupBox("Operations")
-        self.savefileBox= QGroupBox("Data saving", self)
+        self.savefileBox = QGroupBox("Data saving", self)
 
-        self.paramNames=[]
+        self.paramNames = []
         for item in CtrlVars:
             self.paramNames.append(item.value)
 
         # consider using an external text files to load the limits
-        self.paramLimits= ([300, 800], [1, 5], [0, 200], [0, 200], [0, 10], [0, 200], [0, 5])
-        self.paramInitValues= (532, 3, 0, 10, 1, 10, 1)
+        self.paramLimits = ([300, 800], [1, 5], [0, 200], [0, 200], [0, 10], [0, 200], [0, 5], [0, 60])
+        self.paramInitValues = (532, 3, 0, 10, 1, 10, 1, 1)
 
-        self.NParams= len(self.paramNames)
+        self.NParams = len(self.paramNames)
         self.params_1 = np.zeros(self.NParams)
 
-        self.savefilePath= ''
+        self.savefilePath = ''
 
-
-        self.params= {}
+        self.params = {}
         for i, name in enumerate(self.paramNames):
-            self.params[name]= self.params_1[i]
+            self.params[name] = self.params_1[i]
 
         '''
         consider restructure the data here using dictionary? {name: (value, [min, max, init])}
         '''
 
+        self.buttonNames = ("Set Params", "Get Params", "Start", "About")
+        self.actionMap = { \
+            "Set Params": self.btSetParamAction, \
+            "Get Params": self.btGetParamAction, \
+            "Start": self.btStartAction, \
+            "About": self.btAboutAction}
 
-        self.buttonNames= ("Set Params", "Get Params", "Start", "About")
-        self.actionMap= {\
-                    "Set Params": self.btSetParamAction, \
-                    "Get Params": self.btGetParamAction, \
-                    "Start": self.btStartAction, \
-                    "About": self.btAboutAction}
+        self.thorlabPM100DVName = 'USB0::0x1313::0x8078::P0021814::INSTR'
+        self.keithley2400VName = 'GPIB0::24::INSTR'
 
-        self.thorlabPM100DVName= 'USB0::0x1313::0x8078::P0021814::INSTR'
-        self.keithley2400VName= 'GPIB0::24::INSTR'
-
-        self.mainLayout= QVBoxLayout()
+        self.mainLayout = QVBoxLayout()
 
         self.mainLayout.addWidget(self.createSpectrometerParamFormBox())
         self.mainLayout.addWidget(self.createSpectrometerOperationButtonBox())
         self.mainLayout.addWidget(self.createSavefileBox())
 
         self.setLayout(self.mainLayout)
-        self.resize(300, self.NParams*50)
+        self.resize(300, self.NParams * 50)
         self.move(0, 0)
         self.show()
-
-
 
 
 if __name__ == '__main__':

@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 import matplotlib
+from matplotlib.colors import LinearSegmentedColormap
 import numpy as np
 import datetime
 import os
@@ -11,6 +12,20 @@ from scipy import optimize
 FS_LABEL = 22
 FS_TICKS = 18
 
+cdict1 = {'red':   [[0.0,  0.0, 0.0],
+                   [0.55,  0.0, 0.0],
+                   [0.8, 1.0, 1.0],
+                   [1.0,  1.0, 1.0]],
+         'green': [[0.0,  0.0, 0.0],
+                   [0.55, 0.0, 0.0],
+                   [0.8, 1.0, 1.0],
+                   [1.0,  1.0, 1.0]],
+         'blue':  [[0.0,  0.0, 0.0],
+                   [0.55,  1.0, 1.0],
+                   [0.8, 1.0, 1.0],
+                   [1.0,  1.0, 1.0]]}
+
+black_blue_white1 = LinearSegmentedColormap('BlackBlueWhite1', cdict1)
 # ##################################   General classes   #################################################
 
 
@@ -98,7 +113,7 @@ class LivePlotLR:
         self.fig.canvas.draw()
         plt.tight_layout()
 
-    def plot_live(self, xdata, ydata, yrdata=None):
+    def plot_live(self, xdata, ydata, yrdata=None,title1='',fontsize=60):
         self.ax1.lines[0].set_xdata(xdata)
         self.ax1.lines[0].set_ydata(ydata)
         if yrdata is not None:
@@ -115,8 +130,10 @@ class LivePlotLR:
             self.ax2.lines[0].set_ydata(ydata)
             self.ax2.relim()
             self.ax2.autoscale_view()
-
+            
+        self.ax1.set_title(title1,fontsize=fontsize)
         self.fig.canvas.draw()
+        plt.tight_layout()
         plt.pause(1e-7)
 
 class LivePlot2D:
@@ -148,18 +165,23 @@ class LivePlot2DV2:
         self.ax = self.fig.add_subplot(111)
         self.extent = [np.min(x_data), np.max(x_data), np.min(y_data), np.max(y_data)]
         self.fig.show()
+        self.bluecmap = black_blue_white1
         aspect_ratio = abs((x_data[-1] - x_data[0]) / (y_data[-1] - y_data[0]) )
-        self.cp = self.ax.imshow(z_data, cmap='gray',
+        self.cp = self.ax.imshow(z_data, cmap=self.bluecmap ,
                                  interpolation='nearest',extent=self.extent, aspect=aspect_ratio)
 # origin='center', extent=self.extent
         self.cb = self.fig.colorbar(self.cp, fraction=0.046/2, pad=0.04)
         self.fig.canvas.draw()
         self.fig.tight_layout()
 
-    def plot_live(self, z_data):
+    def plot_live(self, z_data,y_data=None):
+        if y_data is not None:
+            self.extent = [self.extent[0], self.extent[1], np.min(y_data), np.max(y_data)]
+        
         self.cp.set_data(z_data)
         self.cNorm      = matplotlib.colors.Normalize(vmin=np.min(z_data),vmax=np.max(z_data))
-        self.scalarMap  = matplotlib.cm.ScalarMappable(norm=self.cNorm, cmap=plt.get_cmap('gray') )
+        self.scalarMap  = matplotlib.cm.ScalarMappable(norm=self.cNorm, cmap=self.bluecmap )
+#         plt.get_cmap('gray')
         self.cb.update_normal(self.scalarMap)
         self.cp.set_norm(self.cNorm)
         self.cb.draw_all()
@@ -178,13 +200,15 @@ class LivePlotFSM:
         self.ax1.set_xlabel('', labelpad=10, fontsize=18)
         self.ax1.set_ylabel(zlabel, labelpad=10, fontsize=18)
         self.ax1.tick_params(axis='both', labelsize=16)
-
+        
+        self.bluecmap = black_blue_white1
+        
         #2D sub plot
         extent_x = (np.max(x_data) - np.min(x_data)) / 2
         extent_y = (np.max(y_data) - np.min(y_data)) / 2
         self.extent = [np.min(x_data), np.max(x_data), np.min(y_data), np.max(y_data)]
 #         aspect_ratio = abs((x_data[-1] - x_data[0]) / (y_data[-1] - y_data[0]))
-        self.cp2 = self.ax2.imshow(z_data, cmap='gray', extent=self.extent,
+        self.cp2 = self.ax2.imshow(z_data, cmap=self.bluecmap, extent=self.extent,
                                  interpolation='nearest', aspect=1)
 
         self.cb2 = self.fig.colorbar(self.cp2, fraction=0.046, pad=0.04)
@@ -207,7 +231,8 @@ class LivePlotFSM:
 
         self.cp2.set_data(z_data)
         self.cNorm      = matplotlib.colors.Normalize(vmin=np.min(z_data),vmax=np.max(z_data))
-        self.scalarMap  = matplotlib.cm.ScalarMappable(norm=self.cNorm, cmap=plt.get_cmap('gray') )
+        self.scalarMap  = matplotlib.cm.ScalarMappable(norm=self.cNorm, cmap=self.bluecmap )
+#         plt.get_cmap('gray')
         self.cb2.update_normal(self.scalarMap)
         self.cp2.set_norm(self.cNorm)
 
@@ -281,6 +306,17 @@ def prettify_3d_plot(fig_ax, fig_cb, xlabel='x', ylabel='y', zlabel='z'):
     fig_ax.w_zaxis.line.set_color((1.0, 1.0, 1.0, 0.0))
     fig_ax.grid(False)
 
+def line(x,  a, b):
+    return a*x+b
+
+def unwrap_custom(arrayin,period):
+    """unwrap with custom period"""
+    arrayout =period/2/np.pi*np.unwrap(np.array(arrayin)*2*np.pi/period)
+    return arrayout
+
+def unwrap_by_pt(curr_pt,prev_pt,period):
+    """unwrap with custom period"""
+    return curr_pt-round((curr_pt-prev_pt)/period)*period
 
 def lorentzian_func(x_array, a0, x0, gamma):
     # I0 = something proportional to the height
@@ -377,3 +413,9 @@ def fitgaussian2D(data):
                                  data)
     p, success = optimize.leastsq(errorfunction, params)
     return p
+
+def pulse_wfm(t,tstart,width):
+    """a 0-1 pulse that is on in [tstart,tend]
+    return the pulse value at time t
+    """
+    return np.heaviside(t-tstart,0)-np.heaviside(t-tstart-width,0)

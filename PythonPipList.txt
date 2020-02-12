@@ -12,5 +12,10 @@ nidaqmx
 more_itertools
 zhinst
 scikit-image
+pandas
 pythonnet # use this for .NET Common Language Runtime (CLR)
 # don't pip clr - it will install a terminal string library
+instrumental-lib
+pywin32
+nicelib
+pint

@@ -1,9 +1,12 @@
 .ipynb_checkpoints
 .idea
 .vscode
+.vs
 .DS_Store
 __pycache__/
 LowLevelModules/__pycache__
 ControlHardware/Thumbs.db
 ControlHardwareB70
 Obsolete
+TestPrograms/
+venv

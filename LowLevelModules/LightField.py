@@ -26,6 +26,7 @@ from PrincetonInstruments.LightField.Automation import Automation
 from PrincetonInstruments.LightField.AddIns import CameraSettings
 from PrincetonInstruments.LightField.AddIns import DeviceType
 from PrincetonInstruments.LightField.AddIns import ExperimentSettings
+import threading
 
 
 class LightField:
@@ -60,6 +61,9 @@ class LightField:
         self.experiment.Acquire()
         while self.experiment.IsRunning:
             time.sleep(.1)
+
+    def acquireThreaded(self):
+        pass
 
     @staticmethod
     def load_acquired_data(directory, filename):
