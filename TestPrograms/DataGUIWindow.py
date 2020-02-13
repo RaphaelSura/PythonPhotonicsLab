@@ -41,6 +41,13 @@ class DynamicMPLCanvas(MPLCanvas):
 
     def __init__(self, *args, **kwargs):
         MPLCanvas.__init__(self, *args, **kwargs)
+        self.xLabel = "init X label"
+        self.yLabel = "init Y label"
+        self.setXYLabels(self.xLabel, self.yLabel)
+
+    def setXYLabels(self, xl, yl):
+        self.axes.set_xlabel(xl)
+        self.axes.set_ylabel(yl)
 
     def fetchData(self, daq):
         '''
@@ -57,8 +64,10 @@ class DynamicMPLCanvas(MPLCanvas):
     def updateFigure(self):
         self.axes.cla()
         self.axes.plot(self.x, self.y, 'ro-')
+        self.setXYLabels(self.xLabel, self.yLabel)
         self.draw()
 
+    #TODO: something is strange about having a function being called in a loop in a thread and when I try to call the same function from another place it crashes the program
     def updateWhenNotified(self, daq, canvasUpdateFlag):
         while True:
             canvasUpdateFlag.wait()
@@ -66,6 +75,14 @@ class DynamicMPLCanvas(MPLCanvas):
             self.fetchData(daq)
             self.updateFigure()
             canvasUpdateFlag.clear()
+
+    def updateAxesLabels(self, xlabel="default X", ylabel="default Y"):
+        self.xLabel = xlabel
+        self.yLabel = ylabel
+        self.setXYLabels(xlabel, ylabel)
+        self.draw()
+        # print(self.xLabel)
+        # self.updateFigure()
 
 
 class DataGUIWindow(QtWidgets.QMainWindow):
@@ -87,9 +104,10 @@ class DataGUIWindow(QtWidgets.QMainWindow):
 
         self.mainWidget = QtWidgets.QWidget(self)
 
-        l = QtWidgets.QVBoxLayout(self.mainWidget)
+        mainWindowLayout = QtWidgets.QVBoxLayout(self.mainWidget)
         self.dc = DynamicMPLCanvas(self.mainWidget, width=5, height=4, dpi=100)
-        l.addWidget(self.dc)
+        mainWindowLayout.addWidget(self.dc)
+        mainWindowLayout.addWidget(self.createGraphOptionControlGUI())
 
         self.mainWidget.setFocus()
         self.setCentralWidget(self.mainWidget)
@@ -99,6 +117,26 @@ class DataGUIWindow(QtWidgets.QMainWindow):
 
     def fileQuit(self):
         self.close()
+
+    def createGraphOptionControlGUI(self):
+        self.graphOptionBox = QtWidgets.QGroupBox("Graph options")
+        self.graphOptionLayout = QtWidgets.QFormLayout()
+        self.graphXlabel = QtWidgets.QLineEdit()
+        self.graphYlabel = QtWidgets.QLineEdit()
+
+        self.graphXlabel.setText("init X label")
+        self.graphYlabel.setText("init Y label")
+
+        self.graphXlabel.textChanged.connect(self.updateGraphLabels)
+        self.graphYlabel.textChanged.connect(self.updateGraphLabels)
+        self.graphOptionLayout.addRow("X axis label", self.graphXlabel)
+        self.graphOptionLayout.addRow("Y axis label", self.graphYlabel)
+        self.graphOptionBox.setLayout(self.graphOptionLayout)
+        return self.graphOptionBox
+
+    def updateGraphLabels(self):
+        self.dc.updateAxesLabels(self.graphXlabel.text(), self.graphYlabel.text())
+        # print(self.graphXlabel.text())
 
     def linkDaq(self, daq):
         """
