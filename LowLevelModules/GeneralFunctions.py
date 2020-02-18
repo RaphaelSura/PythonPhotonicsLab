@@ -241,6 +241,7 @@ class LivePlotFSM:
         #self.fig.tight_layout()
         plt.pause(1e-7)
 
+        
 # ##################################   General functions   ##############################################
 
 def fetch_date_and_make_folder(data_type):
@@ -283,6 +284,9 @@ def prettify_plot(fig_ax, xlabel='x', ylabel='y'):
     fig_ax.set_xlabel(xlabel, labelpad=10, fontsize=FS_LABEL)
     fig_ax.set_ylabel(ylabel, labelpad=10, fontsize=FS_LABEL)
     fig_ax.tick_params(axis='both', labelsize=FS_TICKS)
+    x_lim = fig_ax.get_lines()[0].get_xdata()
+    fig_ax.set_xlim([x_lim[0], x_lim[-1]])
+
 
 
 def prettify_2d_plot(fig_ax, fig_cb, xlabel='x', ylabel='y', zlabel='z'):
