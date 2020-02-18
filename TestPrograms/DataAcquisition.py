@@ -14,10 +14,9 @@ import TestPrograms.MockDataGenerator as MDG
 import threading
 import time
 
-
-# from LowLevelModules.Spectroscopy import Spectrum
-# from LowLevelModules.GeneralFunctions import LivePlot2D, prettify_2d_plot
-# from LowLevelModules.LightField import LightField
+from LowLevelModules.Spectroscopy import Spectrum
+from LowLevelModules.GeneralFunctions import LivePlot2D, prettify_2d_plot
+from LowLevelModules.LightField import LightField
 
 
 class Daq:
@@ -165,11 +164,23 @@ class LaserDiodeSpectroscopyDaq(Daq):
         super().__init__()
         self.keithley2400VName = 'GPIB0::24::INSTR'
         # TODO change this back to correct code on the lightfield computer
-        # self.LFauto = LightField()
-        self.LFauto = None
+        print(f'Daq: Initializing lightfield program')
+        self.LFauto = LightField()
+        # self.LFauto = None
+        self.lightfieldAcquiringThrdEvt = threading.Event()
+        self.lightfieldAcquiringThrdEvt.clear()
 
         self.wdir = f'Z:\\Projects\\Boron Nitride\\samples\\2019HenrykDiodeLaser\\tmp'
+        self.currentStart = 0
+        self.currentStop = 1
+        self.currentStep = 1
+        self.currents = np.arange(self.currentStart, self.currentStop, self.currentStep)
+        self.NData = 1
+        self.powers = np.zeros(self.NData)
+        self.powersStdDev = np.zeros(self.NData)
 
+    def parameterInit(self, params):
+        self.params = params
         self.instrumentInit()
 
     def instrumentInit(self):
@@ -214,23 +225,28 @@ class LaserDiodeSpectroscopyDaq(Daq):
         self.xa = self.currents
         self.ya = self.powers
 
-        stabilizingTime = 5
+        stabilizingTime = 1
         haltTimeCurrRampBeforeSpectroscopy = self.params[CtrlVars.SPECTROMETER_ACQ_TIME.value] + stabilizingTime
 
-        print(f'starting to acquire data')
+        print(f'starting to acquire data, estimating to take {haltTimeCurrRampBeforeSpectroscopy} seconds')
         for i, cur in enumerate(self.currents):
             self.sm.ramp_to_current(cur)
             self.sm.measure_current()  # run this before reading with accessing field sm.current
             time.sleep(haltTimeCurrRampBeforeSpectroscopy)
 
-            # threading.Thread(target=self.LFauto.acquire).start() #TODO finish the spectrometer control here
-            self.LFauto
+            self.LFauto.acquire()
+            # self.lightfieldAcquiringThrdEvt.wait()
             self.newDataAcquired.set()  # for notifying some drawing component
+            print(f'DEBUG: Finished acquiring a spectrum')
             # time.sleep(0.025)
 
         self.sm.shutdown()  # Ramps the current to 0 mA and disables output
 
-        return self.powerCurrentDat
+        return
+
+        # def startLightFieldAcquireThread(self):
+    #     threading.Thread(target=self.LFauto.acquire).start()  # TODO finish the spectrometer control here
+    #     self.lightfieldAcquiringThrdEvt.set()
 
 
 class MockExperiment(Daq):

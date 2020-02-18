@@ -160,27 +160,31 @@ class LivePlot2D:
 
 
 class LivePlot2DV2:
-    def __init__(self, x_data, y_data, z_data, x_ext=18, y_ext=6):
+    def __init__(self, x_data, y_data, z_data, x_ext=18, y_ext=6,cmap=black_blue_white1):
         self.fig = plt.figure(figsize=(x_ext, y_ext))
         self.ax = self.fig.add_subplot(111)
         self.extent = [np.min(x_data), np.max(x_data), np.min(y_data), np.max(y_data)]
         self.fig.show()
         self.bluecmap = black_blue_white1
+        self.x_data= x_data
         aspect_ratio = abs((x_data[-1] - x_data[0]) / (y_data[-1] - y_data[0]) )
-        self.cp = self.ax.imshow(z_data, cmap=self.bluecmap ,
-                                 interpolation='nearest',extent=self.extent, aspect=aspect_ratio)
+        self.cp = self.ax.imshow(z_data, cmap=cmap ,
+                                 interpolation='nearest',origin='center',extent=self.extent, aspect=aspect_ratio)
 # origin='center', extent=self.extent
         self.cb = self.fig.colorbar(self.cp, fraction=0.046/2, pad=0.04)
         self.fig.canvas.draw()
         self.fig.tight_layout()
 
-    def plot_live(self, z_data,y_data=None):
+    def plot_live(self, z_data,y_data=None,cmap=black_blue_white1):
         if y_data is not None:
             self.extent = [self.extent[0], self.extent[1], np.min(y_data), np.max(y_data)]
-        
+            self.cp.set_extent(self.extent)
+            aspect_ratio = abs((self.x_data[-1] - self.x_data[0]) / (y_data[-1] - y_data[0]) )            
+            self.ax.set_aspect( aspect_ratio  )
+            
         self.cp.set_data(z_data)
         self.cNorm      = matplotlib.colors.Normalize(vmin=np.min(z_data),vmax=np.max(z_data))
-        self.scalarMap  = matplotlib.cm.ScalarMappable(norm=self.cNorm, cmap=self.bluecmap )
+        self.scalarMap  = matplotlib.cm.ScalarMappable(norm=self.cNorm, cmap=cmap )
 #         plt.get_cmap('gray')
         self.cb.update_normal(self.scalarMap)
         self.cp.set_norm(self.cNorm)

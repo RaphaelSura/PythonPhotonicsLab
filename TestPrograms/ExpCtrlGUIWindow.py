@@ -57,6 +57,9 @@ class ExperimentCtrlGUIWindow(QWidget):
         self.filepathField.selectAll()
         self.filepathField.copy()
 
+    def createLightFieldSaveConfigBox(self):
+        return
+
     def createSavefileBox(self):
 
         filepathLayout = QHBoxLayout()
@@ -209,6 +212,10 @@ class ExperimentCtrlGUIWindow(QWidget):
         self.disableAllButtons()
         self.daq.startExpThread()
         self._startSaveDataThread()
+
+    def btDisableSources(self):
+        if self.daq is not None:
+            self.daq.disableSources()
 
     def disableAllButtons(self):
         for button in self.buttons:

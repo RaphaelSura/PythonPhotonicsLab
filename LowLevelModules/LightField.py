@@ -8,8 +8,8 @@ from System import String
 from System.Collections.Generic import List
 from LowLevelModules.Spectroscopy import Spectrum
 
-# clr.AddReference('System.IO')
-# clr.AddReference('System.Collections')
+clr.AddReference('System.IO')
+clr.AddReference('System.Collections')
 
 # Needed dll for interaction with LF
 sys.path.append(os.environ['LIGHTFIELD_ROOT'])
@@ -19,8 +19,8 @@ clr.AddReference('PrincetonInstruments.LightField.AutomationV5')
 clr.AddReference('PrincetonInstruments.LightFieldAddInSupportServices')
 
 # PI imports
-# clr.AddReference('PrincetonInstruments.LightField')
-# clr.AddReference('PrincetonInstruments.LightField.Automation')
+clr.AddReference('PrincetonInstruments.LightField')
+clr.AddReference('PrincetonInstruments.LightField.Automation')
 import PrincetonInstruments.LightField.AddIns as AddIns
 from PrincetonInstruments.LightField.Automation import Automation
 from PrincetonInstruments.LightField.AddIns import CameraSettings
@@ -58,9 +58,11 @@ class LightField:
     def acquire(self):
         while not self.experiment.IsReadyToRun:
             time.sleep(.1)
+        print(f'Lightfield: running Acquire()')
         self.experiment.Acquire()
         while self.experiment.IsRunning:
             time.sleep(.1)
+        print(f'Lightfield: Acquire() finished')
 
     def acquireThreaded(self):
         pass

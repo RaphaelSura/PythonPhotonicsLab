@@ -19,8 +19,10 @@ from PyQt5.QtCore import *
 class MainWindow(QWidget):
     def __init__(self):
         # self.daq = Daq.MockExperiment()
-        self.daq = Daq.PowerCurrentDaq()
+        # self.daq = Daq.PowerCurrentDaq()
         # self.daq.parameterInit()
+
+        self.daq = Daq.LaserDiodeSpectroscopyDaq()
 
         self.qtApp = QApplication(sys.argv)
         self.dataGUI = DataGUI.DataGUIWindow()

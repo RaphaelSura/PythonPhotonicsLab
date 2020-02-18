@@ -7,6 +7,7 @@ import time
 from collections import deque
 import sys
 import numpy as np
+
 sys.path.append("..")
 
 
@@ -14,20 +15,19 @@ class ThorlabPM100D:
     '''
     A class wrapper using PyVisa to communicate with PM100D power meter
     '''
-    def __init__(self, VISAName):
-        self.name=VISAName
-        self.pm=None
-        rm = pyvisa.ResourceManager()
 
+    def __init__(self, VISAName):
+        self.name = VISAName
+        self.pm = None
+        rm = pyvisa.ResourceManager()
+        self.powerMeasurements = np.zeros(10)
         try:
-            self.pm=rm.open_resource(self.name)
+            self.pm = rm.open_resource(self.name)
         except:
             print("Something is wrong with initialization, let's abort the program...")
             sys.exit(2)
 
-
-
-    #measures the power
+    # measures the power
 
     def measure(self, n=10, wavelength=535, beamDiameter=3):
         '''
@@ -36,24 +36,24 @@ class ThorlabPM100D:
         '''
         self.pm.write(f"sense:correction:wavelength {wavelength:.0f}")
         self.pm.write(f"sense:correction:beamdiameter {beamDiameter:.0f}")
-        instrWavelength= float(self.pm.query(f"sense:correction:wavelength?"))
-        instrBeamDiameter= float(self.pm.query(f"sense:correction:beamdiameter?"))
-        print(f"Measuring power at {instrWavelength:.0f} [nm]; beam diameter is {instrBeamDiameter:.0f} [mm]")
+        instrWavelength = float(self.pm.query(f"sense:correction:wavelength?"))
+        instrBeamDiameter = float(self.pm.query(f"sense:correction:beamdiameter?"))
+        # print(f"DEBUG: Measuring power at {instrWavelength:.0f} [nm]; beam diameter is {instrBeamDiameter:.0f} [mm]")
 
-        self.powerMeasurements=np.zeros(n)
+        self.powerMeasurements = np.zeros(n)
         for i in range(0, n, 1):
             try:
                 # print(f"Making {i}-th measurement")
                 self.pm.write('initiate')
                 self.pm.write('measure:power')
-                self.powerMeasurement[i]=float(self.pm.query('fetch?'))
+                self.powerMeasurements[i] = float(self.pm.query('fetch?'))
                 time.sleep(0.005)
             except KeyboardInterrupt:
                 break
 
-        powerAve = np.average(self.powerMeasurement)
-        powerStdDev = np.std(self.powerMeasurement)
-        return (self.powerMeasurement, powerAve, powerStdDev)
+        powerAve = np.average(self.powerMeasurements)
+        powerStdDev = np.std(self.powerMeasurements)
+        return self.powerMeasurements, powerAve, powerStdDev
 
 # # some tests down here
 # thorlabPM100DVName= 'USB0::0x1313::0x8078::P0021814::INSTR'
@@ -140,7 +140,6 @@ class ThorlabPM100D:
 #         break
 # for i in range(0, 100, 1):
 #     print(f"{tmpData.pop()*10**9:.0f}")
-
 
 
 # # %%

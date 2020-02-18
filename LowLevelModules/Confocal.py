@@ -180,13 +180,33 @@ class FSM:
             fsm_task.ai_channels.add_ai_voltage_chan(self.ai_chan['y'], 'FSM y axis')
             curr_x, curr_y = fsm_task.read()
         
-        self.position['x'], self.position['y'] = curr_x,curr_y
+#         self.position['x'], self.position['y'] = curr_x,curr_y
 #         self.position_um['x'], self.position_um['y'] = self.volts_to_micron(curr_x,'x'),self.volts_to_micron(curr_y,'y')
                 
         if unit != 'volts':
             curr_x = self.volts_to_micron(curr_x, 'x')
             curr_y = self.volts_to_micron(curr_y, 'y')
         return curr_x, curr_y
+
+    def get_real_position(self, unit='volts'):
+        """ return position based on reading voltage 
+            Voltage reading of the 2 AI from the DAQ
+            Returns in Volts unless asked otherwise """
+        with nidaqmx.Task() as fsm_task:
+            fsm_task.ai_channels.add_ai_voltage_chan(self.ai_chan['x'], 'FSM x axis')
+            fsm_task.ai_channels.add_ai_voltage_chan(self.ai_chan['y'], 'FSM y axis')
+            curr_x, curr_y = fsm_task.read()
+        
+        self.go_to_position(self.volts_to_micron(curr_x,'x'),self.volts_to_micron(curr_y,'y'))
+        
+        with nidaqmx.Task() as fsm_task:
+            fsm_task.ai_channels.add_ai_voltage_chan(self.ai_chan['x'], 'FSM x axis')
+            fsm_task.ai_channels.add_ai_voltage_chan(self.ai_chan['y'], 'FSM y axis')
+            curr_x2, curr_y2 = fsm_task.read()
+        
+        self.go_to_position(self.volts_to_micron(curr_x,'x') +(curr_x-curr_x2)*self.conversion['x']  ,self.volts_to_micron(curr_y,'y')+(curr_y-curr_y2)*self.conversion['y'])
+
+        return self.return_position(unit)
     
     def return_position(self, unit='volts'):
         """ return position in attribute in either volts or micron """
@@ -608,8 +628,16 @@ def scan_1D_cross_section(FSM1,XPS1,center = 0,size = 20,mesh_size=20,zstart=-2,
     Data format
     FSM[row,col] corresponds to coordinate (X=xx[col],Y=yy[row])  
     """
+    
+    if abs(zstart)>20:
+        print('abs(zstart) must be <=20. Quit.')
+        return 0
+    elif abs(zend)>20:
+        print('abs(zend) must be <=20. Quit.')
+        return 0
+    
     curr_x,curr_y = FSM1.return_position('micron')
-
+    
     start_plane = center - size/2.0
     end_plane = center + size/2.0
 
@@ -625,7 +653,7 @@ def scan_1D_cross_section(FSM1,XPS1,center = 0,size = 20,mesh_size=20,zstart=-2,
 
 #     objective_stage = ConexAGP(obj_port)
 #     objective_stage.move_relative(zstart/1000)
-    XPS1.move_by(zstart/1000)
+    XPS1.stage_for_scan.move_by(zstart/1000)
     for i, y0 in enumerate(z_scan):
         try:
             if axis == 'x':                    
@@ -633,7 +661,7 @@ def scan_1D_cross_section(FSM1,XPS1,center = 0,size = 20,mesh_size=20,zstart=-2,
             else:
                 FSM1.go_to_position(curr_x, start_plane)
                 
-            XPS1.move_by(zstep/1000)
+            XPS1.stage_for_scan.move_by(zstep/1000)
             xx, cts = FSM1.scan_1D_axis(start_plane, end_plane, mesh_size, scan_rate,axis)
             FSM1Dcross[mesh_z-1-i,:] = cts
             lp.plot_live(plane_scan, cts, FSM1Dcross)
@@ -653,7 +681,7 @@ def scan_1D_cross_section(FSM1,XPS1,center = 0,size = 20,mesh_size=20,zstart=-2,
     else:
         FSM1.go_to_position(curr_x, center)
 
-    XPS1.move_by(-zend/1000)
+    XPS1.stage_for_scan.move_by(-zend/1000)
 #     objective_stage.close()
 
     if save_data:
