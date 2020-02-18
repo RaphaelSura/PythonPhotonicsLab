@@ -51,26 +51,52 @@ class CtrlVars(Enum):
     SPECTROMETER_ACQ_TIME = "Spectrometer Acquisition Time [s]"
 
 
-class SpectrometerCtrlGUIWindow(QWidget):
+class ExperimentCtrlGUIWindow(QWidget):
 
     def copyText(self):
         self.filepathField.selectAll()
         self.filepathField.copy()
 
+    def createLightFieldSaveConfigBox(self):
+        return
+
     def createSavefileBox(self):
-        # specify custom save directory
-        # use data_save will save an additional copy to the predefined data folder
 
         filepathLayout = QHBoxLayout()
+
         fileLabel = QLabel("Full path: ")
         self.filepathField = QLineEdit(self)
         # self.filepathField.setText(self.savefilePath)
         self.copyFilepathButton = QPushButton("Copy path")
-        # TODO add the copy button 
+        self.copyFilepathButton.clicked.connect(self.copyText)
+        self.filepathField.textChanged.connect(self.copyText)
+
         filepathLayout.addWidget(fileLabel)
         filepathLayout.addWidget(self.filepathField)
         filepathLayout.addWidget(self.copyFilepathButton)
-        self.savefileBox.setLayout(filepathLayout)
+
+        headerEditLabel = QLabel("Data file header")
+        self.datafileHeader = QTextEdit()
+
+        headerEditLayout = QVBoxLayout()
+        headerEditLayout.addWidget(headerEditLabel)
+        headerEditLayout.addWidget(self.datafileHeader)
+
+        self.wdirEdit = QLineEdit()
+        wdirCompleter = QCompleter()
+        wdirCompleter.setModel(QDirModel(wdirCompleter))
+        self.wdirEdit.setCompleter(wdirCompleter)
+
+        wdirEditLayout = QFormLayout()
+        wdirEditLayout.addRow(QLabel("Working Dir:"), self.wdirEdit)
+
+        savefileBoxLayout = QVBoxLayout()
+        savefileBoxLayout.addLayout(filepathLayout)
+        savefileBoxLayout.addLayout(headerEditLayout)
+        savefileBoxLayout.addLayout(wdirEditLayout)
+
+        self.savefileBox.setLayout(savefileBoxLayout)
+
         return self.savefileBox
 
     def createSpectrometerParamFormBox(self):
@@ -166,8 +192,10 @@ class SpectrometerCtrlGUIWindow(QWidget):
             raise ValueError(f'Daq module not setup correctly in python, call linkDaq(daq) first')
 
     def btSetParamAction(self):
+        print(f"DEBUG: this is btSetParamAction.")
         self._checkValidDaq()
-        print(f"DEBUG: this is btSetParamAction. Currently maybe not even needed...")
+        self.daq.parameterInit(self.params)
+        print(f"DEBUG: parameters sent: {self.params}")
 
     def btGetParamAction(self):
         print(f"DEBUG: this is btGetParamAction.")
@@ -185,6 +213,10 @@ class SpectrometerCtrlGUIWindow(QWidget):
         self.daq.startExpThread()
         self._startSaveDataThread()
 
+    def btDisableSources(self):
+        if self.daq is not None:
+            self.daq.disableSources()
+
     def disableAllButtons(self):
         for button in self.buttons:
             button.setDisabled(True)
@@ -197,11 +229,12 @@ class SpectrometerCtrlGUIWindow(QWidget):
         threading.Thread(name='saveData', target=self._saveData, args=tuple(), daemon=True).start()
 
     def _saveData(self):
+        print(f'Data saving thread: Waiting for experiment to finish')
         self.daq.expFinished.wait()
         data = self.daq.data
         # TODO: Put header and figure into the GUI panel
         self.savefilePath = gf.data_save(data, data_type='test',
-                                         header="Description of the data the one should probably have a place in the GUI")
+                                         header=self.datafileHeader.toPlainText())
         print(f'file saved here: \n{self.savefilePath}.txt')
 
         if self.filepathField is not None:
@@ -221,13 +254,13 @@ class SpectrometerCtrlGUIWindow(QWidget):
         pass
 
     def __init__(self):
-        super(SpectrometerCtrlGUIWindow, self).__init__()
+        super(ExperimentCtrlGUIWindow, self).__init__()
         self.setWindowTitle("Spectrometer control")
         self.daq = None
         self.speParamBox = QGroupBox("Experiment Parameters", self)
         self.oprButtonBox = QGroupBox("Operations")
         self.savefileBox = QGroupBox("Data saving", self)
-
+        self.wdir = 'C:\\tmp\\'
         self.paramNames = []
         for item in CtrlVars:
             self.paramNames.append(item.value)
@@ -250,10 +283,10 @@ class SpectrometerCtrlGUIWindow(QWidget):
         '''
 
         self.buttonNames = ("Set Params", "Get Params", "Start", "About")
-        self.actionMap = { \
-            "Set Params": self.btSetParamAction, \
-            "Get Params": self.btGetParamAction, \
-            "Start": self.btStartAction, \
+        self.actionMap = {
+            "Set Params": self.btSetParamAction,
+            "Get Params": self.btGetParamAction,
+            "Start": self.btStartAction,
             "About": self.btAboutAction}
 
         self.thorlabPM100DVName = 'USB0::0x1313::0x8078::P0021814::INSTR'
@@ -273,5 +306,5 @@ class SpectrometerCtrlGUIWindow(QWidget):
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
-    configWindow = SpectrometerCtrlGUIWindow()
+    configWindow = ExperimentCtrlGUIWindow()
     sys.exit(app.exec())

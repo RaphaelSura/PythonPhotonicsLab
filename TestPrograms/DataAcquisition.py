@@ -31,6 +31,15 @@ class Daq:
         self.newDataAcquired.clear()
         self.params = {}
 
+        self.data = None  # TODO find a better solution: ?? currently assume 2 column data
+
+        self.CtrlGUI = None
+        self.expThread = None
+        self.expIsRunningThrdEvt = threading.Event()  # false if experiment is not running
+        self.expIsRunningThrdEvt.clear()
+        self.expFinished = threading.Event()
+        self.expFinished.clear()
+
     def parameterInit(self, params):
         '''
         pass the entire parameters from some interface to Daq module
@@ -43,14 +52,52 @@ class Daq:
     def runExperiment(self):
         pass
 
+    def linkCtrlGUI(self, gui):
+        self.CtrlGUI = gui
+
+    def startExpThread(self):
+        print(f"Debug: starting experiment thread")
+        self.expFinished.clear()
+
+        self.expThread = threading.Thread(name='daq thread',
+                                          target=self.runExperiment,
+                                          args=tuple(),
+                                          daemon=True)
+        self.expThread.start()
+        self.expIsRunningThrdEvt.set()  # TODO
+        print(f'DEBUG: self.expIsRunningThrdEvt is not being clear() '
+              f'anywhere, has not been implemented.')
+
+    def disableSources(self):
+        """
+        Call this before exiting the program
+        :return:
+        """
+        pass
+
 
 class PowerCurrentDaq(Daq):
     def __init__(self):
         super().__init__()
         self.thorlabPM100DVName = 'USB0::0x1313::0x8078::P0021814::INSTR'
         self.keithley2400VName = 'GPIB0::24::INSTR'
+        # self.instrumentInit()
+        self.currentStart = 0
+        self.currentStop = 0
+        self.currentStep = 1
+        self.powerCurrentDat = None
+        self.currentMeasurements = np.zeros(1)
 
+    def parameterInit(self, params):
+        '''
+        pass the entire parameters from some interface to Daq module
+        '''
+        self.params = params
         self.instrumentInit()
+
+    def disableSources(self):
+        if self.sm != None:
+            self.sm.disable_source()
 
     def instrumentInit(self):
         if len(self.params) == 0:
@@ -61,14 +108,15 @@ class PowerCurrentDaq(Daq):
 
         print(f'connected to instruments...')
 
-        self.currentStart = 1e-3 * self.params[CtrlVars.START_CURR]
-        self.currentStop = 1e-3 * self.params[CtrlVars.STOP_CURR]  # in A
-        self.currentStep = 1e-3 * self.params[CtrlVars.CURR_STEP]
-
+        print(f'{self.params}')
+        # return
+        self.currentStart = 1e-3 * self.params[CtrlVars.START_CURR.value]
+        self.currentStop = 1e-3 * self.params[CtrlVars.STOP_CURR.value]  # in A
+        self.currentStep = 1e-3 * self.params[CtrlVars.CURR_STEP.value]
+        # return
         self.sm.apply_current()  # Sets up to source current
-        self.sm.source_current_range = 1e-3 * self.params[
-            CtrlVars.SOURCE_CURRENT_RANGE]  # Sets the source current range to 1 mA
-        self.sm.compliance_voltage = self.params[CtrlVars.COMPLIANCE_VOLT]  # Sets the compliance voltage to 10 V
+        self.sm.source_current_range = 1e-3 * self.params[CtrlVars.SOURCE_CURRENT_RANGE.value]
+        self.sm.compliance_voltage = self.params[CtrlVars.COMPLIANCE_VOLT.value]  # Sets the compliance voltage to 10 V
 
         ''' Safety precaution '''
         self.sm.source_current = 0  # Sets the source current to 0 mA
@@ -82,41 +130,57 @@ class PowerCurrentDaq(Daq):
         self.NData = self.currents.size
         self.powers = np.zeros(self.NData)
         self.powersStdDev = np.zeros(self.NData)
+        self.currentMeasurements = np.zeros(self.NData)
         # allocate np array for currents that will be swept;
 
         self.xa = self.currents
         self.ya = self.powers
 
-        haltTimeCurrRamp2PowerMeas = 3
+        haltTimeCurrRamp2PowerMeas = 0.5
 
         print(f'starting to acquire data')
         for i, cur in enumerate(self.currents):
             self.sm.ramp_to_current(cur)
             self.sm.measure_current()  # run this before reading with accessing field sm.current
+            self.currentMeasurements[i] = self.sm.current
             time.sleep(haltTimeCurrRamp2PowerMeas)
 
-            pmDatum = self.pm.measure(n=3, wavelength=self.params[CtrlVars.WAVELENGTH], \
-                                      beamDiameter=self.params[CtrlVars.BEAM_DIAMETER])
-            self.powers[i] = pmDatum(1)
-            self.powersStdDev[i] = pmDatum(2)
+            pmDatum = self.pm.measure(n=3, wavelength=self.params[CtrlVars.WAVELENGTH.value], \
+                                      beamDiameter=self.params[CtrlVars.BEAM_DIAMETER.value])
+            self.powers[i] = pmDatum[1]
+            self.powersStdDev[i] = pmDatum[2]
 
             self.newDataAcquired.set()  # for notifying some drawing component
             # time.sleep(0.025)
 
         self.sm.shutdown()  # Ramps the current to 0 mA and disables output
-        self.powerCurrentDat = np.column_stack((self.currents, self.powers))
-
-        return self.powerCurrentDat
+        self.data = np.column_stack((self.currents, self.powers))
+        self.expFinished.set()
+        return self.data
 
 
 class LaserDiodeSpectroscopyDaq(Daq):
     def __init__(self):
         super().__init__()
         self.keithley2400VName = 'GPIB0::24::INSTR'
+        # TODO change this back to correct code on the lightfield computer
+        print(f'Daq: Initializing lightfield program')
         self.LFauto = LightField()
+        # self.LFauto = None
+        self.lightfieldAcquiringThrdEvt = threading.Event()
+        self.lightfieldAcquiringThrdEvt.clear()
 
         self.wdir = f'Z:\\Projects\\Boron Nitride\\samples\\2019HenrykDiodeLaser\\tmp'
+        self.currentStart = 0
+        self.currentStop = 1
+        self.currentStep = 1
+        self.currents = np.arange(self.currentStart, self.currentStop, self.currentStep)
+        self.NData = 1
+        self.powers = np.zeros(self.NData)
+        self.powersStdDev = np.zeros(self.NData)
 
+    def parameterInit(self, params):
+        self.params = params
         self.instrumentInit()
 
     def instrumentInit(self):
@@ -127,21 +191,21 @@ class LaserDiodeSpectroscopyDaq(Daq):
         self.sm = Keithley2400(self.keithley2400VName)  # source meter
 
         print(f'configuring LightField...')
-        self.LFauto.set_acquisition_time(self.params[CtrlVars.SPECTROMETER_ACQ_TIME])
+        self.LFauto.set_acquisition_time(self.params[CtrlVars.SPECTROMETER_ACQ_TIME.value])
         self.LFauto.set_path(self.wdir)  # TODO: move wdir to GUI
         self.LFauto.set_filename("TestSpectrum")
         self.LFauto.set_filename_increment()
 
         print(f'configuring Keithley...')
 
-        self.currentStart = 1e-3 * self.params[CtrlVars.START_CURR]
-        self.currentStop = 1e-3 * self.params[CtrlVars.STOP_CURR]  # in A
-        self.currentStep = 1e-3 * self.params[CtrlVars.CURR_STEP]
+        self.currentStart = 1e-3 * self.params[CtrlVars.START_CURR.value]
+        self.currentStop = 1e-3 * self.params[CtrlVars.STOP_CURR.value]  # in A
+        self.currentStep = 1e-3 * self.params[CtrlVars.CURR_STEP.value]
 
         self.sm.apply_current()  # Sets up to source current
         self.sm.source_current_range = 1e-3 * self.params[
-            CtrlVars.SOURCE_CURRENT_RANGE]  # Sets the source current range to 1 mA
-        self.sm.compliance_voltage = self.params[CtrlVars.COMPLIANCE_VOLT]  # Sets the compliance voltage to 10 V
+            CtrlVars.SOURCE_CURRENT_RANGE.value]  # Sets the source current range to 1 mA
+        self.sm.compliance_voltage = self.params[CtrlVars.COMPLIANCE_VOLT.value]  # Sets the compliance voltage to 10 V
 
         ''' Safety precaution '''
         self.sm.source_current = 0  # Sets the source current to 0 mA
@@ -161,30 +225,39 @@ class LaserDiodeSpectroscopyDaq(Daq):
         self.xa = self.currents
         self.ya = self.powers
 
-        stabilizingTime = 5
-        haltTimeCurrRampBeforeSpectroscopy = self.params[CtrlVars.SPECTROMETER_ACQ_TIME] + stabilizingTime
+        stabilizingTime = 1
+        haltTimeCurrRampBeforeSpectroscopy = self.params[CtrlVars.SPECTROMETER_ACQ_TIME.value] + stabilizingTime
 
-        print(f'starting to acquire data')
+        print(f'starting to acquire data, estimating to take {haltTimeCurrRampBeforeSpectroscopy} seconds')
         for i, cur in enumerate(self.currents):
             self.sm.ramp_to_current(cur)
             self.sm.measure_current()  # run this before reading with accessing field sm.current
             time.sleep(haltTimeCurrRampBeforeSpectroscopy)
 
-            # threading.Thread(target=self.LFauto.acquire).start() #TODO finish the spectrometer control here
-            self.LFauto
+            self.LFauto.acquire()
+            # self.lightfieldAcquiringThrdEvt.wait()
             self.newDataAcquired.set()  # for notifying some drawing component
+            print(f'DEBUG: Finished acquiring a spectrum')
             # time.sleep(0.025)
 
         self.sm.shutdown()  # Ramps the current to 0 mA and disables output
 
-        return self.powerCurrentDat
+        return
+
+        # def startLightFieldAcquireThread(self):
+    #     threading.Thread(target=self.LFauto.acquire).start()  # TODO finish the spectrometer control here
+    #     self.lightfieldAcquiringThrdEvt.set()
 
 
 class MockExperiment(Daq):
+    """
+    Use this for testing other components...
+    """
+
     def parameterInit(self, params):
-        '''
+        """
         pass the entire parameters from some interface to Daq module
-        '''
+        """
         self.params = params
 
     def instrumentInit(self):
