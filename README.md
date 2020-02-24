@@ -1,7 +1,6 @@
 # PhotonicsLab
 
-This repository gathers code to run equipment and analyze data from a photonics lab
-* Equipment currently programmed:
+This repository gathers code to run equipment and analyze data from a photonics lab. Allows for live data acquisition from equipment in Jupyter notebooks. Equipment currently programmed:
 * NI instruments: DAQ PCIe-6323
 * Keithley: Sourcemeter 2400
 * Lakeshore: Temp controlelr 335
