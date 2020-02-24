@@ -19,3 +19,4 @@ instrumental-lib
 pywin32
 nicelib
 pint
+PyTektronixScope

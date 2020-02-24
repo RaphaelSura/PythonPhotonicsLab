@@ -27,6 +27,7 @@ class Spectrum(SpeFile):
             cts_replace = slope * self.x[idx] + origin_crossing
             y_noise = 0.1 * np.std(self.y) * np.random.normal(size=cts_replace.size)
             self.y[idx] = cts_replace + y_noise
+         
 
     def remove_etaloning(self, x0, x1='end', sigma=.01, plotplot=False):
         # fourier transform of signal

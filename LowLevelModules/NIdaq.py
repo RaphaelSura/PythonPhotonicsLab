@@ -21,9 +21,9 @@ class AO(nidaqmx.Task):
 
 class AI(nidaqmx.Task):
     #, task_name="AI Read1"
-    def __init__(self, term,terminal_config=nidaqmx.constants.TerminalConfiguration.DEFAULT):
+    def __init__(self, term,terminal_config=nidaqmx.constants.TerminalConfiguration.DEFAULT,min_val=-10.0,max_val=10.0):
         nidaqmx.Task.__init__(self)
-        self.ai_channels.add_ai_voltage_chan(term,terminal_config=terminal_config)#, 'FSM x axis1'
+        self.ai_channels.add_ai_voltage_chan(term,terminal_config=terminal_config,min_val=min_val,max_val=max_val)#, 'FSM x axis1'
         
     def config_read(self,npnts,scan_freq,trig_src):
         # use onboard clock
