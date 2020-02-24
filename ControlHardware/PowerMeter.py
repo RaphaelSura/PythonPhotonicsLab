@@ -7,11 +7,24 @@ from tkinter import Tk, Label, StringVar
 app_font = ('Latex', 60)
 samp_per_reading = 20
 
-"""  calibration values (532nm), power read at the output of microscope objective
-     ND 1 in front of photo diode, , cannot read higher than 3 uW  """
 
-power_reading = [0.1, 14.3, 29.5, 47.5, 228, 497, 1005, 1960, 2460, 3340]
-daq_reading = [0.019, 0.065, 0.11, 0.155, 0.67, 1.44, 2.89, 5.67, 6.98, 9.53]
+""" Calibration (737 nm), power read at input of microscope objective
+    PD DET100A, loaded with 10 kOhm + 10 nF. Connected to dev1/ai2
+    range -10 V to 10 V
+
+"""
+
+
+
+
+power_reading = [0,40,272,1210,4750,12100,14300,17100,18600,29000]
+daq_reading = [-0.01704,-0.015,-0.00384533,0.043661,0.217912,0.574466752,0.69267311,0.788355982,0.889969713,1.393]
+
+# """  calibration values (532nm), power read at the output of microscope objective
+#      ND 1 in front of photo diode, , cannot read higher than 3 uW  """
+
+# power_reading = [0.1, 14.3, 29.5, 47.5, 228, 497, 1005, 1960, 2460, 3340]
+# daq_reading = [0.019, 0.065, 0.11, 0.155, 0.67, 1.44, 2.89, 5.67, 6.98, 9.53]
 
 
 # Alternative calibration

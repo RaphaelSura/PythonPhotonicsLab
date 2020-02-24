@@ -22,8 +22,20 @@ from LowLevelModules.NIdaqAPD import APDCounter
 
 import ipywidgets as widgets
 from IPython.display import display
-from scipy.optimize import curve_fit
+
 from sklearn.metrics import r2_score
+
+
+from LowLevelModules.Spectroscopy import Spectrum
+from LowLevelModules.GeneralFunctions import LivePlot2D, prettify_2d_plot
+from LowLevelModules.LightField import LightField
+
+import PrincetonInstruments.LightField.AddIns as AddIns
+from PrincetonInstruments.LightField.Automation import Automation
+from PrincetonInstruments.LightField.AddIns import CameraSettings
+from PrincetonInstruments.LightField.AddIns import DeviceType
+from PrincetonInstruments.LightField.AddIns import ExperimentSettings
+from PrincetonInstruments.LightField.AddIns import SpectrometerSettings
 
 # # objective stage
 # obj_port = 'COM5'
@@ -607,7 +619,7 @@ class FSM:
 
         dy = size_y/templateY_pt*(row_center-row)
         dx = size_x/templateX_pt*(col-col_center)
-        print(dx,dy)
+#         print(dx,dy)
         if abs(dx)>size_x or abs(dy)>size_y:
             print("tracked (dx, yy) = ", dx ,dy)
             print("moving back to old (x, y) = ", curr_x ,curr_y)
@@ -900,6 +912,17 @@ def read_mult_volt(ai_scan_rate = 1000,ai_pts = 1000,min_val=-10.0,max_val=10.0)
     ext_clock_task.close()
     return tarray,aiV
 
+def read_Toptica_power():
+    """ return power (nW) of Toptica laser at objective"""
+
+    # read for 100 ms. Always read in multiple of power line cycle to reduce noise
+    t0,aiV = read_mult_volt(ai_scan_rate = 1000,ai_pts = 100,min_val=-10.0,max_val=10.0)
+    
+    coef = [20619.62984294,   326.08499128]    
+    
+    curr_P = coef[0]*np.average(aiV)+coef[1]
+    return curr_P
+
 def lor_bkg_fit(x,y):
     """
     fit a lorentzian + DC background to the input
@@ -1044,7 +1067,7 @@ def monitor_wavelength(bristol):
             break
     return t0,lambdalist,powerlist
 
-def scan_laser_piezo(bristol,PM,vstart=-5,vend=5,scanpts = 50,PowerMeterOn=False,save_data=True,lasercurrent=np.nan,potreading=np.nan,PDOn=False):
+def scan_laser_piezo(bristol,PM,vstart=-5,vend=5,scanpts = 50,PowerMeterOn=False,save_data=True,lasercurrent=np.nan,potreading=np.nan,PDOn=False,LFOn=False,LFauto=None,wdir=None):
     """scan laser piezo voltage and monitor wavelength and power
     scan laser frequency in discrete steps
     software timed
@@ -1053,6 +1076,8 @@ def scan_laser_piezo(bristol,PM,vstart=-5,vend=5,scanpts = 50,PowerMeterOn=False
     voltage = np.linspace(vstart,vend,scanpts)
     FP_FSR_V = 4.783
     lpFP = LivePlot(1, 2, 5, 3, 'o', 'Time (s)',"PD (V)")
+    
+    lpSpec = LivePlot(1,2,5,3,'o','Wavelength (nm-air)','Count')
     # lpLRFP = LivePlotLR(1, 1, 8, 5, 'o', 'Laser piezo (V)', 'Peak center (V)','Peak amplitude (V)')
     lpLRFP = LivePlotLR(1, 1, 8, 5, 'o', 'Laser piezo (V)', 'Peak center (V)','Peak center (V)')
 
@@ -1068,9 +1093,25 @@ def scan_laser_piezo(bristol,PM,vstart=-5,vend=5,scanpts = 50,PowerMeterOn=False
     lambdalist=[]
     thorpowerlist = []
     PDvoltlist = []
+    lambdaSpecList = []
+    fwhmSpecList = []
 
     FPlambda=[]
     FPpower=[]
+    
+    if LFOn:           
+        # setup spectrometer
+        base_name = 'spectrometer test'
+        acq_time = 0.2
+        save_data = True
+
+        #deal with LightField settings
+        LFauto.set_acquisition_time(acq_time)
+        LFauto.set_path(wdir)
+        LFauto.set_filename(base_name)
+        LFauto.set_filename_increment()
+            
+            
     for ind,v in enumerate(voltage):
         toptica_bounded_write(v)
         volt_so_far.append(v)
@@ -1121,6 +1162,38 @@ def scan_laser_piezo(bristol,PM,vstart=-5,vend=5,scanpts = 50,PowerMeterOn=False
         mid80 = np.percentile(lambdalist,90)-np.percentile(lambdalist,10)
         if ind>=3:    
             lpLR.ax1.set_ylim([np.percentile(lambdalist,10)-mid80/3,np.percentile(lambdalist,90)+mid80/3])
+            
+        if LFOn:
+            fname = "laser test " + str(i).zfill(2)
+            LFauto.set_filename(fname)
+            LFauto.acquire()
+            data_ref = LFauto.load_acquired_data(wdir, fname)
+            # fit a Lorentzian
+
+#             def lorentzian_bkg_func(x_array, a0, x0, fwhm,bkg):
+#                 return a0  / ( 1+4*( (x_array-x0)/fwhm )**2   )+bkg
+
+            init_vals = [np.amax(data_ref.y), data_ref.x[np.argmax(data_ref.y)],0.08,np.amin(data_ref.y)]
+            try:
+                best_vals, covar = curve_fit(lorentzian_bkg_func, data_ref.x,data_ref.y, p0=init_vals)
+                yfit = lorentzian_bkg_func(data_ref.x, best_vals[0], best_vals[1],best_vals[2],best_vals[3])
+                lpFP.plot_live(t0_this,aiV_this,yfit)
+                lpFP.ax1.set_title(f'Center at {best_vals[1]:.3f} V')
+                plt.tight_layout()
+                time.sleep(0.1)
+        
+                lpSpec.plot_live(data_ref.x,data_ref.y,yfit)
+                lpSpec.ax1.set_title(f'Center at {best_vals[1]:.3f}, fwhm {best_vals[2]:.3f}')
+                
+                lambdaSpecList.append(best_vals[1])
+                fwhmSpecList.append(best_vals[2])
+            except:
+                print('Fit error')
+                lambdaSpecList.append(np.nan)
+                fwhmSpecList.append(np.nan)
+            else:
+                lambdaSpecList.append(np.nan)
+                fwhmSpecList.append(np.nan)
 
     toptica_bounded_write(0)
 
@@ -1131,7 +1204,7 @@ def scan_laser_piezo(bristol,PM,vstart=-5,vend=5,scanpts = 50,PowerMeterOn=False
         data_header=f"""
         current (mA, at 0V) =  {lasercurrent}
         pot reading = {potreading}
-        volt,lambda (nm-air),power (mW),FP lambda (V),FP power (V), Thorlabs power (mW), PD volt (V)
+        volt,lambda (nm-air),power (mW),FP lambda (V),FP power (V), Thorlabs power (mW), PD volt (V), lambda Spectromter (nm-air), fwhm Spectrometer (nm-air)
         """
-        data_array = np.array([volt_so_far, lambdalist,powerlist,FPlambda,FPpower,thorpowerlist,PDvoltlist]).T
+        data_array = np.array([volt_so_far, lambdalist,powerlist,FPlambda,FPpower,thorpowerlist,PDvoltlist,lambdaSpecList,fwhmSpecList]).T
         data_save(data_array, lpLR.fig, data_type, data_header)
