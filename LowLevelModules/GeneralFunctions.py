@@ -7,6 +7,7 @@ import os
 from scipy.special import erf
 from more_itertools import locate
 from scipy import optimize
+from LowLevelModules.ImportSDT import SdtFile
 
 # ##################################   General constants   ##############################################
 FS_LABEL = 22
@@ -27,7 +28,70 @@ cdict1 = {'red':   [[0.0,  0.0, 0.0],
 
 black_blue_white1 = LinearSegmentedColormap('BlackBlueWhite1', cdict1)
 # ##################################   General classes   #################################################
+class MyPlot:
+    def __init__(self, nl, nr, fs=(8,6), xlabel='', ylabel=''):
+        self.fig, self.ax = plt.subplots(nl, nr, figsize=fs)
+        self.ax.set_xlabel(xlabel, labelpad=15, fontsize=22)
+        self.ax.set_ylabel(ylabel, labelpad=15, fontsize=22)
+        self.ax.tick_params(direction='in', axis='both', top=True, right=True, labelsize=18, pad=5, length=6, width=1)
+        plt.tight_layout()
+    
+    def xlim(self, x0=None, xf=None):
+        if x0 is not None:
+            self.ax.set_xlim([x0, xf])
+        else:
+            x_lim = self.ax.get_lines()[0].get_xdata()
+            self.ax.set_xlim([x_lim[0], x_lim[-1]])
+    
+    def plot(self, x, y, mc, **kwargs):
+        self.ax.plot(x, y, mc, **kwargs)
+        self.xlim()
+        plt.tight_layout()
+    
+    def semilogy(self, x, y, mc, **kwargs):
+        self.plot(x, y, mc, **kwargs)
+        self.ax.set_yscale('log')
+        
+    def savefig(self, path):
+        self.fig.savefig(path, format='png', bbox_inches='tight')
+    
 
+class TRMData(SdtFile):
+    def __init__(self, path):
+        super().__init__(path)
+        self.time = self.times[0]
+        self.info = self.measure_info[0]
+        self.x = self.time*1e9
+        self.y = self.data[0][0]
+        self.bin_size = (self.time[-1]-self.time[0])/(len(self.time)-1)
+
+        #trim data
+        self.x = self.x[self.y>0]
+        self.y = self.y[self.y>0]
+        trim = -1 * int(len(self.y)*0.04)
+        self.x = self.x[:trim]
+        self.y = self.y[:trim]
+        
+        #shift x axis
+        self.x -= self.x[0]
+
+        #count rate
+        info_ctr = self.info['StopInfo']
+        min_sync_rate = info_ctr['min_sync_rate'][0]
+        min_cfd_rate = info_ctr['min_cfd_rate'][0]
+        min_tac_rate = info_ctr['min_tac_rate'][0]
+        max_sync_rate = info_ctr['max_sync_rate'][0]
+        max_cfd_rate = info_ctr['max_cfd_rate'][0]
+        max_tac_rate = info_ctr['max_tac_rate'][0]
+        self.col_t = info_ctr['stop_time'][0]
+
+        self.APD1_rate = (min_cfd_rate + max_cfd_rate) / 2
+        self.APD1_rate_alt = (min_tac_rate + max_tac_rate) / 2
+        self.laser_rep_rate = (min_sync_rate + max_sync_rate) / 2
+        self.APD2_rate = self.laser_rep_rate
+        
+        #normalization
+        self.total_counts = np.sum(self.y)        
 
 class LivePlot:
     def __init__(self, subpl=2, num_y_data=1, x_ext=10, y_ext=6, mk='o', xlabel='x', ylabel='y'):
@@ -245,6 +309,7 @@ class LivePlotFSM:
         #self.fig.tight_layout()
         plt.pause(1e-7)
 
+        
 # ##################################   General functions   ##############################################
 
 def fetch_date_and_make_folder(data_type):
@@ -287,6 +352,9 @@ def prettify_plot(fig_ax, xlabel='x', ylabel='y'):
     fig_ax.set_xlabel(xlabel, labelpad=10, fontsize=FS_LABEL)
     fig_ax.set_ylabel(ylabel, labelpad=10, fontsize=FS_LABEL)
     fig_ax.tick_params(axis='both', labelsize=FS_TICKS)
+    x_lim = fig_ax.get_lines()[0].get_xdata()
+    fig_ax.set_xlim([x_lim[0], x_lim[-1]])
+
 
 
 def prettify_2d_plot(fig_ax, fig_cb, xlabel='x', ylabel='y', zlabel='z'):
