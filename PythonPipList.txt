@@ -1,6 +1,7 @@
 jupyter
 matplotlib
 numpy
+pandas
 pymeasure
 pyusb
 pyvisa
@@ -11,11 +12,12 @@ spe2py
 nidaqmx
 more_itertools
 zhinst
+igor
 scikit-image
-pandas
 pythonnet # use this for .NET Common Language Runtime (CLR)
 # don't pip clr - it will install a terminal string library
 instrumental-lib
 pywin32
 nicelib
 pint
+PyTektronixScope

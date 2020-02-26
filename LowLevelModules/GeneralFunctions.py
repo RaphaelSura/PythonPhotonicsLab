@@ -455,7 +455,9 @@ def lorentziansin(x,  amp, cen, fwhm, bkg, asin,fsin,phisin):
     return amp / (1+   ( 2*(x-cen)/fwhm )**2   ) + asin*np.sin(2*np.pi*fsin*x+phisin) +bkg
 
 def gaussian2D(height, center_x, center_y, width_x, width_y,bkg):
-    """Returns a gaussian function with the given parameters"""
+    """Returns a gaussian function with the given parameters
+    width_x, width_y := standard deviation
+    """
     width_x = float(width_x)
     width_y = float(width_y)
     return lambda x,y: bkg+height*np.exp(

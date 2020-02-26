@@ -22,8 +22,20 @@ from LowLevelModules.NIdaqAPD import APDCounter
 
 import ipywidgets as widgets
 from IPython.display import display
-from scipy.optimize import curve_fit
+
 from sklearn.metrics import r2_score
+
+
+from LowLevelModules.Spectroscopy import Spectrum
+from LowLevelModules.GeneralFunctions import LivePlot2D, prettify_2d_plot
+from LowLevelModules.LightField import LightField
+
+import PrincetonInstruments.LightField.AddIns as AddIns
+from PrincetonInstruments.LightField.Automation import Automation
+from PrincetonInstruments.LightField.AddIns import CameraSettings
+from PrincetonInstruments.LightField.AddIns import DeviceType
+from PrincetonInstruments.LightField.AddIns import ExperimentSettings
+from PrincetonInstruments.LightField.AddIns import SpectrometerSettings
 
 # # objective stage
 # obj_port = 'COM5'
@@ -195,21 +207,34 @@ class FSM:
         with nidaqmx.Task() as fsm_task:
             fsm_task.ai_channels.add_ai_voltage_chan(self.ai_chan['x'], 'FSM x axis')
             fsm_task.ai_channels.add_ai_voltage_chan(self.ai_chan['y'], 'FSM y axis')
-            curr_x, curr_y = fsm_task.read()
-        
+            target_x, target_y = fsm_task.read()
+
+        curr_x = target_x
+        curr_y = target_y
         self.go_to_position(self.volts_to_micron(curr_x,'x'),self.volts_to_micron(curr_y,'y'))
         
-        with nidaqmx.Task() as fsm_task:
-            fsm_task.ai_channels.add_ai_voltage_chan(self.ai_chan['x'], 'FSM x axis')
-            fsm_task.ai_channels.add_ai_voltage_chan(self.ai_chan['y'], 'FSM y axis')
-            curr_x2, curr_y2 = fsm_task.read()
+        threshold = 0.005 # volt
         
-        self.go_to_position(self.volts_to_micron(curr_x,'x') +(curr_x-curr_x2)*self.conversion['x']  ,self.volts_to_micron(curr_y,'y')+(curr_y-curr_y2)*self.conversion['y'])
+        # repeat at most 3 times
+        for i in list(range(3)):
+            
+            with nidaqmx.Task() as fsm_task:
+                fsm_task.ai_channels.add_ai_voltage_chan(self.ai_chan['x'], 'FSM x axis')
+                fsm_task.ai_channels.add_ai_voltage_chan(self.ai_chan['y'], 'FSM y axis')
+                curr_x2, curr_y2 = fsm_task.read()
+            if max(abs(target_x - curr_x2),abs(target_y - curr_y2))< threshold:
+                break
+
+            curr_x += target_x - curr_x2
+            curr_y += target_y - curr_y2
+            self.go_to_position(self.volts_to_micron(curr_x,'x') ,self.volts_to_micron(curr_y,'y') )
+
+#         self.go_to_position(self.volts_to_micron(curr_x,'x') +(curr_x-curr_x2)*self.conversion['x']  ,self.volts_to_micron(curr_y,'y')+(curr_y-curr_y2)*self.conversion['y'])
 
         return self.return_position(unit)
     
     def return_position(self, unit='volts'):
-        """ return position in attribute in either volts or micron """
+        """ return stored position in attribute in either volts or micron """
         if unit == 'volts':
             curr_x, curr_y = self.position['x'], self.position['y']
         else:
@@ -499,8 +524,12 @@ class FSM:
         curr_x, curr_y = self.return_position('um')
         xx1,yy1,FSM2D = self.scan_2D(curr_x,curr_y,x_size=size_x,y_size=size_y,mesh_x=mesh_x,mesh_y=mesh_y,scan_rate=scan_rate)
         
+        extent = (min(xx1),max(xx1),min(yy1),max(yy1))
+        stepx = xx1[1]-xx1[0]
+        stepy = yy1[1]-yy1[0]
+       
         data = FSM2D
-        plt.matshow(data, cmap=plt.cm.gist_earth_r)
+        plt.matshow(data, cmap=plt.cm.gist_earth_r,extent=extent)
 
         params = fitgaussian2D(data)
         fit = gaussian2D(*params)
@@ -508,21 +537,23 @@ class FSM:
         plt.contour(fit(*np.indices(data.shape)), cmap=plt.cm.copper)
         ax = plt.gca()
         (height, row, col, width_row, width_col,bkg) = params
-
-        plt.text(0.95, 0.05, """
-        height : %.1f
-        row : %.1f
-        col : %.1f
-        width_row : %.1f
-        width_col : %.1f
-        bkg : %.1f""" %(height,row, col, width_row, width_col,bkg),
-                fontsize=16, horizontalalignment='right',
-                verticalalignment='bottom', transform=ax.transAxes)
-
+        
         xx1ind = np.array(range(len(xx1)))
         xfin = np.interp(col,xx1ind,xx1) 
         yy1ind = np.array(range(len(yy1)))
-        yfin = np.interp(row,yy1ind,yy1)
+        yfin = np.interp(row,yy1ind,yy1)        
+
+        plt.text(0.95, 0.05, """
+        height : %.1f
+        center X : %.2f
+        center Y : %.2f
+        sdev(X) : %.2f
+        sdev(Y) : %.2f
+        bkg : %.1f""" %(height, xfin,yfin,  width_col*stepx,width_row*stepy,bkg),
+                fontsize=16, horizontalalignment='right',
+                verticalalignment='bottom', transform=ax.transAxes)
+
+        
         
         if abs(xfin-curr_x)>size_x/2 or abs(yfin-curr_y)>size_y/2:
             print('Not a good fit. Going back to original position')
@@ -588,7 +619,7 @@ class FSM:
 
         dy = size_y/templateY_pt*(row_center-row)
         dx = size_x/templateX_pt*(col-col_center)
-        print(dx,dy)
+#         print(dx,dy)
         if abs(dx)>size_x or abs(dy)>size_y:
             print("tracked (dx, yy) = ", dx ,dy)
             print("moving back to old (x, y) = ", curr_x ,curr_y)
@@ -600,7 +631,7 @@ class FSM:
             print("moving back to old (x, y) = ", curr_x ,curr_y)
             # set the new current position
 #             self.position['x'], self.position['y'] = self.read_position()
-            self.position['x'], self.position['y'] = (self.micron_to_volts(x,'x'),self.micron_to_volts(y,'y'))
+            self.position['x'], self.position['y'] = (self.micron_to_volts(curr_x,'x'),self.micron_to_volts(curr_y,'y'))
 #             self.position_um['x'], self.position_um['y'] = (x,y)
             return (curr_x,curr_y)
         else:    
@@ -608,9 +639,11 @@ class FSM:
             self.go_to_position(curr_x+dx,curr_y+dy)
             # set the new current position
 #             self.position['x'], self.position['y'] = self.read_position()
-            self.position['x'], self.position['y'] = (self.micron_to_volts(x,'x'),self.micron_to_volts(y,'y'))
+            self.position['x'], self.position['y'] = (self.micron_to_volts(curr_x+dx,'x'),self.micron_to_volts(curr_y+dy,'y'))
 #             self.position_um['x'], self.position_um['y'] = (x,y)
             return (curr_x+dx,curr_y+dy)                
+
+
 
 def scan_1D_cross_section(FSM1,XPS1,center = 0,size = 20,mesh_size=20,zstart=-2,zend=30,zstep=0.4,axis='x',scan_rate=200,save_data = True):
     """  
@@ -850,8 +883,80 @@ def FP_fit(tarray,piezo, PD, userange=250):
         return best_vals
     except:
         print('Fit error')
-        return init_vals*0        
+        return init_vals*0
+
+def read_mult_volt(ai_scan_rate = 1000,ai_pts = 1000,min_val=-10.0,max_val=10.0):
+    """
+    read multiple readings from analog channel and return the array
+    """    
+#     ai_scan_rate = 1000 # scan_rate*mult_fac
+#     ai_pts = 1000 # mesh_pts*mult_fac
     
+    tarray = np.arange(ai_pts)/ai_scan_rate
+
+    # clock source
+    counter_term_clk = '/Dev1/ctr0'
+    trig_src =  '/Dev1/PFI12' 
+
+    ai_chan = '/Dev1/ai2'
+    FSMreadXtask = AI(ai_chan,min_val=min_val,max_val=max_val)
+    FSMreadXtask.config_read(ai_pts, ai_scan_rate, trig_src)
+
+    # PFI12 start
+    # CREATE EXT CLOCK TO GATE THE READING OF PULSES COMING FROM THE APD
+    ext_clock_task = CO(counter_term_clk, ai_scan_rate)
+
+    aiV = FSMreadXtask.read(number_of_samples_per_channel=ai_pts)
+    
+    FSMreadXtask.close()
+    ext_clock_task.close()
+    return tarray,aiV
+
+def read_Toptica_power():
+    """ return power (nW) of Toptica laser at objective"""
+
+    # read for 100 ms. Always read in multiple of power line cycle to reduce noise
+    t0,aiV = read_mult_volt(ai_scan_rate = 1000,ai_pts = 100,min_val=-10.0,max_val=10.0)
+    
+    coef = [20619.62984294,   326.08499128]    
+    
+    curr_P = coef[0]*np.average(aiV)+coef[1]
+    return curr_P
+
+def lor_bkg_fit(x,y):
+    """
+    fit a lorentzian + DC background to the input
+    """
+#     def lorentzian_bkg_func(x_array, a0, x0, fwhm,bkg):
+#     return a0  / ( 1+4*( (x_array-x0)/fwhm )**2   )+bkg
+    Xrange = np.max(x)-np.min(x)
+    init_vals = [np.max(y)-np.min(y), x[np.argmax(y)], Xrange/10,np.average(y)]
+    
+    try:
+        best_vals, covar = curve_fit(lorentzian_bkg_func, x,y, p0=init_vals)
+        return best_vals
+    except:
+        print('Fit error')
+        return init_vals*0
+
+# data fit
+
+def lor_bkg_chi_sq(x,y):
+    """
+    Compute chi_sq
+    """
+#     def lorentzian_bkg_func(x_array, a0, x0, fwhm,bkg):
+#     return a0  / ( 1+4*( (x_array-x0)/fwhm )**2   )+bkg
+    Xrange = np.max(x)-np.min(x)
+    init_vals = [np.max(y)-np.min(y), x[np.argmax(y)], Xrange/10,np.average(y)]
+#     print(init_vals)
+    ychisq = np.linspace(0,1,len(y))
+    
+    for i,v in enumerate(x):
+        yfit = lorentzian_bkg_func(f_PLE, init_vals[0], v,init_vals[2],init_vals[3])
+        ychisq[i] = np.mean((y - yfit)**2)
+    return ychisq
+
 def toptica_bounded_write(v,scan_terminal='/Dev2/ao1'):
     """clamp the output voltage v [Volt] to be -5 <= v <= +5
     scan_terminal - laser scan
@@ -962,7 +1067,7 @@ def monitor_wavelength(bristol):
             break
     return t0,lambdalist,powerlist
 
-def scan_laser_piezo(bristol,PM,vstart=-5,vend=5,scanpts = 50,PowerMeterOn=False,save_data=True,lasercurrent=np.nan,potreading=np.nan):
+def scan_laser_piezo(bristol,PM,vstart=-5,vend=5,scanpts = 50,PowerMeterOn=False,save_data=True,lasercurrent=np.nan,potreading=np.nan,PDOn=False,LFOn=False,LFauto=None,wdir=None):
     """scan laser piezo voltage and monitor wavelength and power
     scan laser frequency in discrete steps
     software timed
@@ -971,10 +1076,14 @@ def scan_laser_piezo(bristol,PM,vstart=-5,vend=5,scanpts = 50,PowerMeterOn=False
     voltage = np.linspace(vstart,vend,scanpts)
     FP_FSR_V = 4.783
     lpFP = LivePlot(1, 2, 5, 3, 'o', 'Time (s)',"PD (V)")
+    
+    lpSpec = LivePlot(1,2,5,3,'o','Wavelength (nm-air)','Count')
     # lpLRFP = LivePlotLR(1, 1, 8, 5, 'o', 'Laser piezo (V)', 'Peak center (V)','Peak amplitude (V)')
     lpLRFP = LivePlotLR(1, 1, 8, 5, 'o', 'Laser piezo (V)', 'Peak center (V)','Peak center (V)')
 
-    if PowerMeterOn:
+    if PDOn:
+        lpLR = LivePlotLR(1, 1, 8, 5, 'o', 'Laser piezo (V)', 'Wavelength (nm-air)','Photodiode (V)')
+    elif PowerMeterOn:
         lpLR = LivePlotLR(1, 1, 8, 5, 'o', 'Laser piezo (V)', 'Wavelength (nm-air)','Thorlabs power (mW)')
     else:
         lpLR = LivePlotLR(1, 1, 8, 5, 'o', 'Laser piezo (V)', 'Wavelength (nm-air)','Bristol power (mW)')
@@ -983,9 +1092,26 @@ def scan_laser_piezo(bristol,PM,vstart=-5,vend=5,scanpts = 50,PowerMeterOn=False
     powerlist=[]
     lambdalist=[]
     thorpowerlist = []
+    PDvoltlist = []
+    lambdaSpecList = []
+    fwhmSpecList = []
 
     FPlambda=[]
     FPpower=[]
+    
+    if LFOn:           
+        # setup spectrometer
+        base_name = 'spectrometer test'
+        acq_time = 0.2
+        save_data = True
+
+        #deal with LightField settings
+        LFauto.set_acquisition_time(acq_time)
+        LFauto.set_path(wdir)
+        LFauto.set_filename(base_name)
+        LFauto.set_filename_increment()
+            
+            
     for ind,v in enumerate(voltage):
         toptica_bounded_write(v)
         volt_so_far.append(v)
@@ -1015,19 +1141,59 @@ def scan_laser_piezo(bristol,PM,vstart=-5,vend=5,scanpts = 50,PowerMeterOn=False
         powerlist.append(currentPower)
 
         # read Thorlabs powermeter
-        if PowerMeterOn:        
+        if PDOn:
+            tarray,aiV = read_mult_volt(ai_scan_rate = 1000,ai_pts = 100,min_val=-10.0,max_val=10.0)
+            PDvoltlist.append(np.average(aiV))
+            thorpowerlist.append(np.nan)
+            lpLR.plot_live(volt_so_far, lambdalist,PDvoltlist)
+            lpLR.ax1r.set_ylim([0,1.1*max(PDvoltlist)])
+        elif PowerMeterOn:        
             currentPMpower = PM.measure_power(737)*1e3
             thorpowerlist.append(currentPMpower)
+            PDvoltlist.append(np.nan)
             lpLR.plot_live(volt_so_far, lambdalist,thorpowerlist)
             lpLR.ax1r.set_ylim([0,1.1*max(thorpowerlist)])
         else:
             thorpowerlist.append(np.nan)
+            PDvoltlist.append(np.nan)
             lpLR.plot_live(volt_so_far, lambdalist,powerlist)
             lpLR.ax1r.set_ylim([0,1.1*max(powerlist)])
 
         mid80 = np.percentile(lambdalist,90)-np.percentile(lambdalist,10)
         if ind>=3:    
             lpLR.ax1.set_ylim([np.percentile(lambdalist,10)-mid80/3,np.percentile(lambdalist,90)+mid80/3])
+            
+        if LFOn:
+            fname = "laser test " + str(i).zfill(2)
+            LFauto.set_filename(fname)
+            LFauto.acquire()
+            data_ref = LFauto.load_acquired_data(wdir, fname)
+            # fit a Lorentzian
+
+#             def lorentzian_bkg_func(x_array, a0, x0, fwhm,bkg):
+#                 return a0  / ( 1+4*( (x_array-x0)/fwhm )**2   )+bkg
+
+            init_vals = [np.amax(data_ref.y), data_ref.x[np.argmax(data_ref.y)],0.08,np.amin(data_ref.y)]
+            try:
+                best_vals, covar = curve_fit(lorentzian_bkg_func, data_ref.x,data_ref.y, p0=init_vals)
+                yfit = lorentzian_bkg_func(data_ref.x, best_vals[0], best_vals[1],best_vals[2],best_vals[3])
+                lpFP.plot_live(t0_this,aiV_this,yfit)
+                lpFP.ax1.set_title(f'Center at {best_vals[1]:.3f} V')
+                plt.tight_layout()
+                time.sleep(0.1)
+        
+                lpSpec.plot_live(data_ref.x,data_ref.y,yfit)
+                lpSpec.ax1.set_title(f'Center at {best_vals[1]:.3f}, fwhm {best_vals[2]:.3f}')
+                
+                lambdaSpecList.append(best_vals[1])
+                fwhmSpecList.append(best_vals[2])
+            except:
+                print('Fit error')
+                lambdaSpecList.append(np.nan)
+                fwhmSpecList.append(np.nan)
+            else:
+                lambdaSpecList.append(np.nan)
+                fwhmSpecList.append(np.nan)
 
     toptica_bounded_write(0)
 
@@ -1038,7 +1204,7 @@ def scan_laser_piezo(bristol,PM,vstart=-5,vend=5,scanpts = 50,PowerMeterOn=False
         data_header=f"""
         current (mA, at 0V) =  {lasercurrent}
         pot reading = {potreading}
-        volt,lambda (nm-air),power (mW),FP lambda (V),FP power (V), Thorlabs power (mW)
+        volt,lambda (nm-air),power (mW),FP lambda (V),FP power (V), Thorlabs power (mW), PD volt (V), lambda Spectromter (nm-air), fwhm Spectrometer (nm-air)
         """
-        data_array = np.array([volt_so_far, lambdalist,powerlist,FPlambda,FPpower,thorpowerlist]).T
+        data_array = np.array([volt_so_far, lambdalist,powerlist,FPlambda,FPpower,thorpowerlist,PDvoltlist,lambdaSpecList,fwhmSpecList]).T
         data_save(data_array, lpLR.fig, data_type, data_header)

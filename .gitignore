@@ -5,7 +5,15 @@
 .DS_Store
 __pycache__/
 LowLevelModules/__pycache__
+LowLevelModules/.ipynb_checkpoints
+AnalyzeData/.ipynb_checkpoints
+ControlHardware/__pycache__
+ControlHardware/.ipynb_checkpoints
 ControlHardware/Thumbs.db
+ControlHardware/PI_spectro_automation
+ControlHardware/*.png
+ControlHardware/*.kv
+ControlHardware/*.ico
 ControlHardwareB70
 Obsolete
 TestPrograms
