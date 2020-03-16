@@ -28,14 +28,18 @@ from sklearn.metrics import r2_score
 
 from LowLevelModules.Spectroscopy import Spectrum
 from LowLevelModules.GeneralFunctions import LivePlot2D, prettify_2d_plot
-from LowLevelModules.LightField import LightField
 
-import PrincetonInstruments.LightField.AddIns as AddIns
-from PrincetonInstruments.LightField.Automation import Automation
-from PrincetonInstruments.LightField.AddIns import CameraSettings
-from PrincetonInstruments.LightField.AddIns import DeviceType
-from PrincetonInstruments.LightField.AddIns import ExperimentSettings
-from PrincetonInstruments.LightField.AddIns import SpectrometerSettings
+# from scipy.misc import electrocardiogram
+from scipy.signal import chirp, find_peaks, peak_widths
+
+# from LowLevelModules.LightField import LightField
+
+# import PrincetonInstruments.LightField.AddIns as AddIns
+# from PrincetonInstruments.LightField.Automation import Automation
+# from PrincetonInstruments.LightField.AddIns import CameraSettings
+# from PrincetonInstruments.LightField.AddIns import DeviceType
+# from PrincetonInstruments.LightField.AddIns import ExperimentSettings
+# from PrincetonInstruments.LightField.AddIns import SpectrometerSettings
 
 # # objective stage
 # obj_port = 'COM5'
@@ -54,14 +58,14 @@ class XPS_stage:
         self.groupnum = groupnum
         self.stage_for_scan = XPSstage(self.ip_address, self.portnum, self.groupnum)
         
-    def center_NV_depth(self,scan_extent=2,step_size=0.2,collection_time=0.5,terminal="/Dev1/PFI1" ):
+    def center_NV_depth(self,scan_extent=2,step_size=0.2,collection_time=0.5,terminal="/Dev1/PFI1",to_fit=True,save_data=False):
         """
         scan in um
         time in sec
         """
         # move the stage to start scan
-        if scan_extent>10:
-            print("Scan extent is too large. It must be <= 10 um.")
+        if scan_extent>20:
+            print("Scan extent is too large. It must be <= 20 um.")
             return 0
         steps = int(2 * scan_extent/step_size)
         pos_before_scan = self.stage_for_scan.read_position()
@@ -98,35 +102,50 @@ class XPS_stage:
         # popt, pcov = curve_fit(gaussian_func, pos, cts, bounds=bds)
         
         p0 = [max(cts),pos[np.argmax(cts)],scan_extent,  min(cts)]
-        try:
-            popt, pcov = curve_fit(lorentzian_bkg_func, pos, cts,p0=p0, bounds=bds)
-            # The on axis laser intensity should be a Lorentzian
-            data_y_fit = lorentzian_bkg_func(pos, *popt)
-            plt.plot(pos, data_y_fit, 'r-')
-            #check validity of the fit
-            if r2_score(cts, data_y_fit)>.7:
-                best_shift = popt[1]
-                print("Optimized from fit")
-            else:
-                best_shift = pos[cts.argmax()]
-                print("Optimized from max value in scan")
-            # double check validity
-            if np.abs(best_shift) > 5:
+        if to_fit:
+            try:
+                popt, pcov = curve_fit(lorentzian_bkg_func, pos, cts,p0=p0, bounds=bds)
+                # The on axis laser intensity should be a Lorentzian
+                data_y_fit = lorentzian_bkg_func(pos, *popt)
+                plt.plot(pos, data_y_fit, 'r-')
+                #check validity of the fit
+                if r2_score(cts, data_y_fit)>.7:
+                    best_shift = popt[1]
+                    print("Optimized from fit")
+                else:
+                    best_shift = pos[cts.argmax()]
+                    print("Optimized from max value in scan")
+                # double check validity
+                if np.abs(best_shift) > 5:
+                    best_shift = 0
+                    print("Actually not! Fit too far off. Staying at initial position")
+                # move the stage
+                self.stage_for_scan.move_to(pos_before_scan + best_shift/1000)
+
+                print(f'Amplitude is {popt[0]}')
+                print(f'Center is {popt[1]}')
+                print("FWHM is %f um" % (2.3548*popt[2]))
+                print(f'Background is {popt[3]}')
+                print("Position before scan: ", pos_before_scan )
+                print("Position after scan: ", self.stage_for_scan.read_position())        
+            except:
                 best_shift = 0
-                print("Actually not! Fit too far off. Staying at initial position")
+                print("Fit failed. Staying at initial position")
+                self.stage_for_scan.move_to(pos_before_scan + best_shift/1000)
+        else:
+            print('Going back to original position')
+            best_shift = 0
             # move the stage
             self.stage_for_scan.move_to(pos_before_scan + best_shift/1000)
-
-            print(f'Amplitude is {popt[0]}')
-            print(f'Center is {popt[1]}')
-            print("FWHM is %f um" % (2.3548*popt[2]))
-            print(f'Background is {popt[3]}')
-            print("Position before scan: ", pos_before_scan )
-            print("Position after scan: ", self.stage_for_scan.read_position())        
-        except:
-            best_shift = 0
-            print("Fit failed. Staying at initial position")
-            self.stage_for_scan.move_to(pos_before_scan + best_shift/1000)
+                
+        if save_data:
+            data_type = 'depth_scan'
+            header = f'pos_before_scan {pos_before_scan} collection_time {collection_time}\n Position(um), Counts(kHz)'
+            array = np.transpose(np.array([pos, cts]))
+            data_save(array, figure=lp.fig, data_type=data_type, header=header)
+            
+    
+        
 
 class FSM:
     """self.position is the position in (volt) that is WRITTEN to the FSM, except when starting up, where it uses its read position
@@ -806,21 +825,29 @@ def load_and_track(directory,fileprefix,fileext=".dat",radius = 3,minmass=None,p
 #     lp = LivePlot2DV2( usersDfX, usersDfY, usersDf)
     
     # tp.annotate(f, usersDf,plot_style={'markersize':7},imshow_style=pltstyle)
-    for i in list(range(  len(f))):
 
-        xcoor = usersDfX[0] + (usersDfX[-1]-usersDfX[0])*(f.iloc[i].x   )/( numX  )
-        ycoor = usersDfY[0] + (usersDfY[-1]-usersDfY[0])*(f.iloc[i].y   )/( numY  )
+    fnew = f
+    fnew.index = list(range(len(f)))
+    for i in list(range(  len(f))):
         
-        f.at[i,'x'] = xcoor
-        f.at[i,'y'] = ycoor
+        xcoor = usersDfX[0] + (usersDfX[-1]-usersDfX[0])*(fnew.iloc[i].x  )/( numX  )
+        ycoor = usersDfY[0] + (usersDfY[-1]-usersDfY[0])*(fnew.iloc[i].y )/( numY  )
+        
+        fnew.at[i,'x'] = xcoor
+        fnew.at[i,'y'] = ycoor
+#         print(i,len(f),xcoor,ycoor,f.iloc[i].x,f.iloc[i].y)
+
         plt.scatter(xcoor, ycoor, s=100, facecolors='none', edgecolors='r')
         ax2.annotate(str(i),(xcoor,ycoor),fontsize=12,color='black',
                      bbox=dict(boxstyle='round,pad=0.2', fc='white', alpha=0.6))
+
     plt.xlabel('', labelpad=16, fontsize=16)
     plt.ylabel('', labelpad=16, fontsize=16)    
     ax2.tick_params(axis='both', labelsize=16)
     plt.title(directory+"\\"+filename,fontsize=16)
-    return f
+    
+    
+    return fnew
     # # https://stackoverflow.com/questions/24108063/matplotlib-two-different-colors-in-the-same-annotate/49041502
     
     
@@ -869,21 +896,51 @@ def FP_scan(ao_pts_half = 250,v_final = 6.0):
 
 def FP_fit(tarray,piezo, PD, userange=250):
     """
-    fit a lorentzian + sine to the input
+    fit a lorentzian to the input
     assume piezo is either linearly increasing or decreasing
     only use the wave in [0:userange-1]    
-    return (amp, cen, fwhm, bkg, asin,fsin,phisin)
+    return (amp, cen, fwhm, bkg, x_FSR)
     """
     npts = min(len(piezo),userange)
     vrange = np.amax(piezo[0:npts-1])-np.amin(piezo[0:npts-1])
     scan_rate = 1/(tarray[1]-tarray[0])
-    init_vals = [np.amin(PD), piezo[np.argmin(PD)], 0.2, 0.05,0.1,60*npts/scan_rate/vrange,1]
+    
+    piezoSub = piezo[0:npts-1]
+    PDSub = PD[0:npts-1]
+    
+    cen = piezo[np.argmax(PD)]
+    fwhm = 0.2
+    bkg = 0 #np.average(PD)
+#     asin = 0.002 # np.std(PD)*1.414
+#     fsin = 60*npts/scan_rate/vrange
+#     phisin = 1
+
+    amp = np.amax(PD)-np.average(PD)
+    
+    peaks, _ = find_peaks(PDSub, height=amp/2,distance=50)
+    
+    if len(peaks)>=2:
+        x_FSR = abs(piezoSub[peaks[0]] - piezoSub[peaks[1]])
+    else:
+        x_FSR = 4.783
+#     init_vals = [amp, cen, fwhm, bkg, asin,fsin,phisin]
+
+
+    
+    
+    
+    init_vals = [amp, cen, fwhm, bkg,x_FSR]
+    print(f'initial guess  [amp, cen, fwhm, bkg,x_FSR] {init_vals}')
+#     print(f'init{init_vals}')
+#     init_vals = [np.amin(PD), piezo[np.argmin(PD)], 0.2, 0.05,0.1,60*npts/scan_rate/vrange,1]
     try:
-        best_vals, covar = curve_fit(lorentziansin, piezo[0:npts-1], PD[0:npts-1], p0=init_vals)
+#         best_vals, covar = curve_fit(lorentziansin, piezo[0:npts-1], PD[0:npts-1], p0=init_vals)
+        best_vals, covar = curve_fit(lorentzianFSR,piezoSub ,PDSub , p0=init_vals)
+        
         return best_vals
     except:
         print('Fit error')
-        return init_vals*0
+        return init_vals
 
 def read_mult_volt(ai_scan_rate = 1000,ai_pts = 1000,min_val=-10.0,max_val=10.0):
     """
@@ -916,11 +973,19 @@ def read_Toptica_power():
     """ return power (nW) of Toptica laser at objective"""
 
     # read for 100 ms. Always read in multiple of power line cycle to reduce noise
-    t0,aiV = read_mult_volt(ai_scan_rate = 1000,ai_pts = 100,min_val=-10.0,max_val=10.0)
+#     t0,aiV = read_mult_volt(ai_scan_rate = 1000,ai_pts = 100,min_val=-10.0,max_val=10.0)
+    
+    with nidaqmx.Task() as fsm_task:
+        fsm_task.ai_channels.add_ai_voltage_chan('/Dev1/ai2')
+        readVolt = fsm_task.read()    
     
     coef = [20619.62984294,   326.08499128]    
     
-    curr_P = coef[0]*np.average(aiV)+coef[1]
+    curr_P = coef[0]*readVolt+coef[1]
+    
+    
+    
+    
     return curr_P
 
 def lor_bkg_fit(x,y):
@@ -937,7 +1002,7 @@ def lor_bkg_fit(x,y):
         return best_vals
     except:
         print('Fit error')
-        return init_vals*0
+        return init_vals
 
 # data fit
 
@@ -977,6 +1042,8 @@ def fit_wavelength_segments(directory,fileprefix,fileext=".txt",skiprows=5):
     """ https://stackoverflow.com/questions/6148207/linear-regression-with-matplotlib-numpy
     fit wavelength scan into linear segments
     """
+    c_light = 299792458
+    nair = 1.00027549 # air refractive index at 737 nm
     filename = fileprefix +fileext
     usersDf = pd.read_csv(directory+'\\' + fileprefix  + fileext, skiprows=skiprows,delimiter =' ',header=None).values
     
@@ -998,6 +1065,10 @@ def fit_wavelength_segments(directory,fileprefix,fileext=".txt",skiprows=5):
 
     ptlist=np.append(np.insert(np.nonzero(b)[0],0,-1),len(lambdaFPlist)-1)
 #     print(ptlist)
+
+    print('Wavelength in air')
+#     print(f'Start wavelength (nm), End wavelength (nm), Wavelength range (nm), Start piezo (V), End piezo (V), Slope (nm/V), Intercept (nm), FP slope (V/V), FP intercept (V)')
+    print(f'Index, Wavelength range (nm),Slope (nm/Vpiezo), FP slope (V/Vpiezo), FP slope (GHz/Vpiezo), Computed slope from cavity (nm/Vpiezo)')
     for ind,v in enumerate(ptlist[:-1]):
         startpt =  ptlist[ind]+1
         endpt = ptlist[ind+1]
@@ -1017,17 +1088,24 @@ def fit_wavelength_segments(directory,fileprefix,fileext=".txt",skiprows=5):
             yrfit = lambdaFPlist[startfit:endfit+1]
 
             coef = np.polyfit(xfit,yfit, 1)
+            
+            
             poly1d_fn = np.poly1d(coef)
             coefr = np.polyfit(xfit,yrfit, 1)
             poly1d_fnr = np.poly1d(coefr)
             
 #             plt.plot(x, poly1d_fn(x), '--r')
-
+            lambda_mean = np.median(poly1d_fn(xfit))
+    
             lpLR.ax1.plot(xfit, poly1d_fn(xfit), '--r')
             lpLR.ax1r.plot(xfit, poly1d_fnr(xfit), '--b')
 #             print(f'{poly1d_fn(xfit[0]): .4f},{poly1d_fn(xfit[-1]): .4f}, {poly1d_fn(xfit[0])-poly1d_fn(xfit[-1]):.4f},{xfit[0]: .3f},{xfit[-1]: .3f},{coef[0]:.4f},{coef[1]:.3f}')
 #             print(endpt)
-            print(f'{poly1d_fn(x[0]): .4f},{poly1d_fn(x[-1]): .4f}, {poly1d_fn(x[0])-poly1d_fn(x[-1]):.4f},{x[0]: .3f},{x[-1]: .3f},{coef[0]:.4f},{coef[1]:.3f}')
+#             print(f'{poly1d_fn(x[0]): .4f},{poly1d_fn(x[-1]): .4f}, {poly1d_fn(x[0])-poly1d_fn(x[-1]):.4f},{x[0]: .3f},{x[-1]: .3f},{coef[0]:.4f},{coef[1]:.3f},{coefr[0]:.3f},{coefr[1]:.3f}')
+            print(f'{ind},{poly1d_fn(x[0])-poly1d_fn(x[-1]):.4f},{coef[0]:.4f},{coefr[0]:.3f},{coefr[0]*10/4.783:.2f},{coefr[0]*10/4.783/(c_light/nair/lambda_mean/lambda_mean):.4f}')
+    
+            lpLR.ax1.annotate(f'{ind}',(np.median(xfit),np.median(poly1d_fn(xfit))),fontsize=12,color='r',
+                     bbox=dict(boxstyle='round,pad=0.2', fc='white', alpha=0.6))
             a=np.asarray([[poly1d_fn(x[0]),poly1d_fn(x[-1]),poly1d_fn(x[0])-poly1d_fn(x[-1]),x[0],x[-1],coef[0],coef[1]]])
 
             mode_hop_free=np.append(mode_hop_free,a,axis=0)
@@ -1059,7 +1137,8 @@ def monitor_wavelength(bristol):
             lambdalist.append(currentLambda)
             powerlist.append(currentPower)
             t0.append(time.time()-tinit)
-            lpLR.plot_live(t0, lambdalist,powerlist,f'Mean = {np.mean(lambdalist): .4f}\n Std = {np.std(lambdalist): .4f}',fontsize=40)
+#             lpLR.plot_live(t0, lambdalist,powerlist,f'curr {currentLambda:.4f} Mean = {np.mean(lambdalist): .4f}\n Std = {np.std(lambdalist): .4f}',fontsize=40)
+            lpLR.plot_live(t0, lambdalist,powerlist,f'curr {currentLambda:.4f}',fontsize=40)
     #         lpLR.ax1.set_ylim([736.85,736.87])
             time.sleep(timestep)
         except:
@@ -1075,7 +1154,7 @@ def scan_laser_piezo(bristol,PM,vstart=-5,vend=5,scanpts = 50,PowerMeterOn=False
     toptica_bounded_write(vstart)
     voltage = np.linspace(vstart,vend,scanpts)
     FP_FSR_V = 4.783
-    lpFP = LivePlot(1, 2, 5, 3, 'o', 'Time (s)',"PD (V)")
+    lpFP = LivePlot(1, 2, 5, 3, '.', 'Time (s)',"PD (V)")
     
     lpSpec = LivePlot(1,2,5,3,'o','Wavelength (nm-air)','Count')
     # lpLRFP = LivePlotLR(1, 1, 8, 5, 'o', 'Laser piezo (V)', 'Peak center (V)','Peak amplitude (V)')
@@ -1099,6 +1178,12 @@ def scan_laser_piezo(bristol,PM,vstart=-5,vend=5,scanpts = 50,PowerMeterOn=False
     FPlambda=[]
     FPpower=[]
     
+    
+    now = datetime.datetime.now()
+    date_str = now.strftime("%y%m%d %H%M")[:6]
+    time_str = now.strftime("%y%m%d %H%M%S")[-6:]
+    
+    
     if LFOn:           
         # setup spectrometer
         base_name = 'spectrometer test'
@@ -1117,8 +1202,10 @@ def scan_laser_piezo(bristol,PM,vstart=-5,vend=5,scanpts = 50,PowerMeterOn=False
         volt_so_far.append(v)
 
         # read fabry perot - need to start the read and write channel at the same time
-        t0_this,v_ao_scan_this,aiV_this = FP_scan()
-        best_vals = FP_fit(t0_this[0:249],v_ao_scan_this[0:249], aiV_this[0:249])
+        
+        ao_pts_half=500
+        t0_this,v_ao_scan_this,aiV_this = FP_scan(ao_pts_half=ao_pts_half,v_final=10.0)
+        best_vals = FP_fit(t0_this[0:ao_pts_half-1],v_ao_scan_this[0:ao_pts_half-1], aiV_this[0:ao_pts_half-1],userange=ao_pts_half)
         if ind==0:
             FPlambda.append(best_vals[1])
         else:
@@ -1126,8 +1213,10 @@ def scan_laser_piezo(bristol,PM,vstart=-5,vend=5,scanpts = 50,PowerMeterOn=False
 
         FPpower.append(-best_vals[0])
 
-        yfit = lorentziansin(v_ao_scan_this, best_vals[0], best_vals[1],best_vals[2],best_vals[3],best_vals[4],best_vals[5],best_vals[6])
-        lpFP.plot_live(t0_this,aiV_this,yfit)
+#         yfit = lorentziansin(v_ao_scan_this, best_vals[0], best_vals[1],best_vals[2],best_vals[3],best_vals[4],best_vals[5],best_vals[6])
+        yfit = lorentzianFSR(v_ao_scan_this, best_vals[0], best_vals[1],best_vals[2],best_vals[3],best_vals[4])
+        print(f'FWHM {best_vals[2]:.4f}, FSR {best_vals[4]:.4f}, Finesse {best_vals[4]/best_vals[2]:.4f}')
+        lpFP.plot_live(t0_this[0:ao_pts_half-1],aiV_this[0:ao_pts_half-1],yfit[0:ao_pts_half-1])
         lpFP.ax1.set_title(f'Center at {best_vals[1]:.3f} V')
         plt.tight_layout()
         time.sleep(0.1)
@@ -1164,8 +1253,9 @@ def scan_laser_piezo(bristol,PM,vstart=-5,vend=5,scanpts = 50,PowerMeterOn=False
             lpLR.ax1.set_ylim([np.percentile(lambdalist,10)-mid80/3,np.percentile(lambdalist,90)+mid80/3])
             
         if LFOn:
-            fname = "laser test " + str(i).zfill(2)
+            fname = "laser test "+time_str+" " + str(ind).zfill(2)
             LFauto.set_filename(fname)
+            LFauto.set_filename_increment()
             LFauto.acquire()
             data_ref = LFauto.load_acquired_data(wdir, fname)
             # fit a Lorentzian
@@ -1191,9 +1281,9 @@ def scan_laser_piezo(bristol,PM,vstart=-5,vend=5,scanpts = 50,PowerMeterOn=False
                 print('Fit error')
                 lambdaSpecList.append(np.nan)
                 fwhmSpecList.append(np.nan)
-            else:
-                lambdaSpecList.append(np.nan)
-                fwhmSpecList.append(np.nan)
+        else:
+            lambdaSpecList.append(np.nan)
+            fwhmSpecList.append(np.nan)
 
     toptica_bounded_write(0)
 
