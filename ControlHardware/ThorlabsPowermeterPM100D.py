@@ -24,7 +24,7 @@ class ThorlabPM100D:
         try:
             self.pm = rm.open_resource(self.name)
         except:
-            print("Something is wrong with initialization, let's abort the program...")
+            print("ThorlabPM100D: Something is wrong with initialization, let's abort the program...")
             sys.exit(2)
 
     # measures the power

@@ -1,7 +1,5 @@
 import visa
 
-
-class LakeShore335:
 class LakeShore335:
 
     """ Temperature controller from Lake Shore 335

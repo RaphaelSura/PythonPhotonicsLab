@@ -151,9 +151,9 @@ class LivePlotLR:
             self.ax1 = self.fig.add_subplot(111)
         else:
             self.ax1 = self.fig.add_subplot(121)
-        plt.plot([], [], marker=mk)
+        self.ax1.plot([], [], marker=mk)
         if num_y_data == 2:
-            plt.plot([], [], marker=mk)
+            self.ax1.plot([], [], marker=mk)
 
         self.ax1r = self.ax1.twinx()
 #         plt.xlabel(xlabel, labelpad=10, fontsize=FS_LABEL)
@@ -163,7 +163,7 @@ class LivePlotLR:
         self.ax1r.set_ylabel( yrlabel, color='g',labelpad=10, fontsize=FS_LABEL)
         self.ax1.tick_params(axis='both', labelsize=FS_TICKS)
         self.ax1r.tick_params(axis='both', labelsize=FS_TICKS)
-        self.ax1r.plot([],[],'go-')
+        self.ax1r.plot([],[],'g.-')
 
 
         if subpl > 1:
@@ -175,7 +175,8 @@ class LivePlotLR:
 
         self.fig.show()
         self.fig.canvas.draw()
-        plt.tight_layout()
+        self.fig.tight_layout()
+        self.fig.canvas.draw()
 
     def plot_live(self, xdata, ydata, yrdata=None,title1='',fontsize=60):
         self.ax1.lines[0].set_xdata(xdata)
@@ -197,7 +198,7 @@ class LivePlotLR:
             
         self.ax1.set_title(title1,fontsize=fontsize)
         self.fig.canvas.draw()
-        plt.tight_layout()
+        self.fig.tight_layout()
         plt.pause(1e-7)
 
 class LivePlot2D:
@@ -410,7 +411,24 @@ def lorentzian_discrete_func(x_array, aTot, x0, fwhm,bkg,step):
     """
     return bkg*step  +aTot/np.pi *(np.arctan(2*(x_array-x0+step/2)/fwhm)-np.arctan(2*(x_array-x0-step/2)/fwhm))
 
+def lorentziansin(x,  amp, cen, fwhm, bkg, asin,fsin,phisin):
+    """
+    Lorentizan plus a sine wave - for fitting Fabry perot response in the presence of 60 Hz noise
+    """
+    return amp / (1+   ( 2*(x-cen)/fwhm )**2   ) + asin*np.sin(2*np.pi*fsin*x+phisin) +bkg
 
+def lorentzianFSR(x,amp,cen,fwhm,bkg,x_FSR):
+    """ sum of multiple lorentzian"""
+    
+    a1 = amp / (1+   ( 2*(x-cen-2*x_FSR)/fwhm )**2   )
+    a2 = amp / (1+   ( 2*(x-cen-x_FSR)/fwhm )**2   )
+    a3 = amp / (1+   ( 2*(x-cen)/fwhm )**2   )
+    a4 = amp / (1+   ( 2*(x-cen+x_FSR)/fwhm )**2   )
+    a5 = amp / (1+   ( 2*(x-cen+2*x_FSR)/fwhm )**2   )
+    
+    return a1+a2+a3+a4+a5 +bkg
+    
+    
 def gaussian_func(x_array, a0, x0, sigma):
     return a0 * np.exp(-(x_array - x0) ** 2 / (2 * sigma ** 2)) / np.sqrt(2 * np.pi * sigma ** 2)
 
@@ -451,11 +469,7 @@ def voigt_func_2p(x, a01, x01, sigma1, gamma1, a02, x02, sigma2, gamma2):
     return a01 * f1 / np.max(f1) + a02 * f2 / np.max(f2)
     #return voigt_func(x, a01, x01, sigma1, gamma1) + voigt_func(x, a02, x02, sigma2, gamma2)
 
-def lorentziansin(x,  amp, cen, fwhm, bkg, asin,fsin,phisin):
-    """
-    Lorentizan plus a sine wave - for fitting Fabry perot response in the presence of 60 Hz noise
-    """
-    return amp / (1+   ( 2*(x-cen)/fwhm )**2   ) + asin*np.sin(2*np.pi*fsin*x+phisin) +bkg
+
 
 def gaussian2D(height, center_x, center_y, width_x, width_y,bkg):
     """Returns a gaussian function with the given parameters
