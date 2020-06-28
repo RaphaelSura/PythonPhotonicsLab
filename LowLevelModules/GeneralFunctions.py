@@ -328,7 +328,10 @@ def data_save(array, figure=None, data_type=None, header=None):
     save_data_file = fetch_date_and_make_folder(data_type)
     if figure is not None:
         figure.savefig(save_data_file + '.png', format='png', bbox_inches='tight')
-    np.savetxt(save_data_file + '.txt', array, header=header)
+    if header is not None:
+        np.savetxt(save_data_file + '.txt', array, header=header)
+    else:
+        np.savetxt(save_data_file + '.txt', array)
     print(save_data_file + '.txt')
     return save_data_file
 
