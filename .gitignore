@@ -15,6 +15,5 @@ ControlHardware/*.png
 ControlHardware/*.kv
 ControlHardware/*.ico
 ControlHardwareB70
-Obsolete
 TestPrograms
 venv
